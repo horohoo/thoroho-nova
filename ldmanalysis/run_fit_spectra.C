@@ -36,8 +36,10 @@ TH1D* PullTerm(const SystShifts & shifts, bool sortName);
 TH1F* LoadLdmNum();
 
 
-void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
+void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
 {
+    TStopwatch sw;
+    sw.Start();
 
     bool statonly  = options.Contains("statonly");
     bool ndsys     = options.Contains("nd");
@@ -72,10 +74,15 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
         std::cout << "Fit with statistical and cross section systematical uncertainties ...\n";
     }
 
-    //Systematics                                                                                        
+    TH1F* ldmNum = LoadLdmNum();
+
+    //The calculator will be used to generate MC prediction
+    osc::OscCalcSingleElectron calc;
+
+    //Systematics                                                        
     std::vector<const ISyst*> systs;
     std::vector <SystShifts> seedShifts = {};
-    SystShifts auxShifts = SystShifts::Nominal();  // A container to hold the best shifts of the Systs   
+    SystShifts auxShifts = SystShifts::Nominal();  // A container to hold the best shifts of the Systs 
 
     if (ndsys)
     {
@@ -144,14 +151,22 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
         systs.insert(systs.end(), XSectSys.begin(), XSectSys.end());
     }
 
-  
-    NDPredictionSystsSingleElectron pred;
+    TString outsuffix = options+Form("_sys_%s_%s_data_cut_%d.root", isFHC ? "fhc" : "rhs", mock ? "mock" : "fake", iCuts);
+    std::string outsuffix_string(outsuffix.Data());
+    std::string pred_outname = "preds_" + outsuffix_string + ".root";
 
-    osc::OscCalcSingleElectron calc;
-
+    //Vars to be fitted
     std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron,
                                             &kFitIBkgScalingSingleElectron,
                                             &kFitBkgScalingSingleElectron};
+
+    //Seeds                                                                                                                   
+    std::vector<double> dmscale_seeds = {1e-20, 1e-5};
+    std::vector<double> ibkgscale_seeds = {1.04, 1.06};
+    std::vector<double> bkgscale_seeds = {0.94, 0.96};
+    const SeedList& seedFitVars = SeedList({{&kFitSigScalingSingleElectron,  dmscale_seeds},
+	                                    {&kFitIBkgScalingSingleElectron, ibkgscale_seeds},
+	                                    {&kFitBkgScalingSingleElectron,  bkgscale_seeds}});
 
 
     //Cuts for event selection
@@ -167,17 +182,6 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
     std::vector<double> IBkgFit;
     std::vector<double> BkgFit;
     std::vector<double> Chi2Fit;
-
-
-    //Seeds
-    std::vector<double> dmscale_seeds = {1e-20, 1e-5};
-    std::vector<double> ibkgscale_seeds = {1.04, 1.06};
-
-    std::vector<double> bkgscale_seeds = {0.94, 0.96};
-    const SeedList& seedFitVars = SeedList({{&kFitSigScalingSingleElectron, dm_scale_seeds},
-	                                    {&kFitIBkgScalingSingleElectron, ibkgscale_seeds},
-					    {&kFitBkgScalingSingleElectron, bkgscale_seeds}});
-    
 
     std::cout << "ldmscale: "  << ldmScale << std::endl;
     double bkgscale;
@@ -200,16 +204,34 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
         fnominal.assign(frhc);
       }
 
+    // construct prediction (needed to LoadFrom() later)
+    SpectrumLoader loaderldm(fldm);
+    SpectrumLoader loadernuone(fnuone);
+    SpectrumLoader loadernominal(fnominal);
+    const Binning bins  = Binning::Simple(20, 0, 0.02);
+    const HistAxis etheta2Axis("E #theta^{2} (GeV Rad^{2})", bins, nuone::kETheta2);
+    NDPredictionSystsSingleElectron pred(loaderldm, loadernuone, loadernominal, etheta2Axis, sel_cut, sel_cut&&nuone_cut, sel_cut&&numu_cut, ana::kPPFXFluxCVWgt, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51);
 
+
+    const double pot = 1.5e21;
     for(auto i_dminf : dmInf)
     {
       int i_dm = i_dminf.DmMassPoints;
+      if (i_dm > dmmass)
+      {
+	break;
+      }
+
+      double npred = ldmNum->GetBinContent(ldmNum->FindBin(i_dm));
+      std::cout << "\nDM mass: " << i_dm << " MeV, Number of predicted LDM events: " << npred << std::endl;
 
       // Load the prediction from file
-      std::cout << "Loading prediction from file... \n";
-      TFile *predFile = new TFile(outDir+Form("Fit_DM_%dMeV_", i_dm) + outsuffix);
+      std::cout << "Loading prediction of mass " << i_dm << " MeV from file..." << std::endl;
+      TFile *predFile = new TFile(outDir+Form("Pred_DM_%dMeV_", i_dm) + outsuffix);
       predFile->cd();
       static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr = pred.LoadFrom(predFile, pred_outname);
+
+      std::cout << "POT set from file: " << pred_ptr->GetPOT() << std::endl;
 
       calc.SetAna(true);
       calc.SetBkgScale(bkgscale);
@@ -219,7 +241,7 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
       calc.SetDMFile(dmFile);
 
       std::cout << "Prediction Loaded, making prediction... \n";
-      Spectrum spred = pred_ptr.Predict(&calc);
+      Spectrum spred = pred_ptr->Predict(&calc);
 
       //Generate data                                                                               
       Spectrum data = Spectrum::Uninitialized();
@@ -235,7 +257,7 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
         }
 
         std::cout << "\nFitting ...\n";
-        const IExperiment* expt = new SingleSampleExperiment(&pred_ptr, data);  // ND is not impacted by cosmic
+        const IExperiment* expt = new SingleSampleExperiment(&*pred_ptr, data);
         
         // Find the best fit points
         double minichi = 1E20;
@@ -339,6 +361,9 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
         fitFile->Write();
         fitFile->Close();
         delete fitFile;
+
+	predFile->Close();
+	delete predFile;
     }
 
     std::cout << "\nMaking confidence level ...\n";
@@ -361,8 +386,13 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
         calc.SetIBkgScale(nuonescale);
         calc.SetSigScale(ldmScale);
         calc.SetDMMass(DMMass[i]);
+
+	TFile *predFile = new TFile(outDir+Form("Pred_DM_%dMeV_", i_dm) + outsuffix);
+	predFile->cd();
+	static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr = pred.LoadFrom(predFile, pred_outname);
+	
         
-        Spectrum spred = pred_ptr.Predict(&calc);
+        Spectrum spred = pred_ptr->Predict(&calc);
         int binnum;
         
         if(i == 0)
@@ -392,7 +422,7 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
         calc.SetIBkgScale(IBkgFit[i]);
         calc.SetSigScale(DMFit[i]);
         
-        hFit = pred_ptr.Predict(&calc).ToTH1(pot, kBlack, 1);
+        hFit = pred_ptr->Predict(&calc).ToTH1(pot, kBlack, 1);
         hFit->SetName(Form("hFit_%dMeV", i_dm));
         binnum = hFit->GetNbinsX();
         for(int bin = 1; bin <= binnum ; bin++)
@@ -401,11 +431,11 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
         }
         hFit->Sumw2();
 
-        hIBkg = pred_ptr.PredictComponent(&calc, Flavors::kNuEToNuMu, Current::kCC, Sign::kNu).ToTH1(pot, 16, 4);
+        hIBkg = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuMu, Current::kCC, Sign::kNu).ToTH1(pot, 16, 4);
         hIBkg->SetName(Form("hNuone_%dMeV", i_dm));
         hIBkg->SetFillColor(17);
         
-        hBkg = pred_ptr.PredictComponent(&calc, Flavors::kNuEToNuTau, Current::kCC, Sign::kNu).ToTH1(pot, 13, 5);
+        hBkg = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuTau, Current::kCC, Sign::kNu).ToTH1(pot, 13, 5);
         hBkg->SetName(Form("hNumi_%dMeV", i_dm));
         hBkg->SetFillColor(15);
         
@@ -417,7 +447,7 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
                   << ", mass: " << dmInf[i].DmMassPoints  << ", effective POT: " << dmInf[i].DMSimuPOT*(bdnmcY/ULimit[i]) << std::endl;
 
         TH1* hExDM = NULL;
-        hExDM = pred_ptr.Predict(&calc).ToTH1(pot, i+3, 1);
+        hExDM = pred_ptr->Predict(&calc).ToTH1(pot, i+3, 1);
         hExDM->SetName(Form("hExDM_%dMeV", i_dm));
         binnum = hExDM->GetNbinsX();
         for(int bin = 1; bin <= binnum ; bin++)
@@ -427,7 +457,7 @@ void run_fit_spectra(TString options="nd_flux_pileup_xsec", int iCuts = 5, bool 
         hExDM->Sumw2();
         
         TH1* hSig = NULL;
-        hSig = pred_ptr.PredictComponent(&calc, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, i+3, 1);
+        hSig = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, i+3, 1);
         hSig->SetName(Form("hSig_%dMeV", i_dm));
         hSig->SetFillColor(i+3);
         binnum = hSig->GetNbinsX();

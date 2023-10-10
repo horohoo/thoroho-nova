@@ -12,7 +12,7 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
     TString outsuffix = options+Form("_sys_%s_%s_data_cut_%d.root", isFHC ? "fhc" : "rhc", mock ? "mock" : "fake", iCuts);
     std::string outsuffix_string(outsuffix.Data());
 
-    std::string pred_outname = "preds" + outsuffix_string + ".root";
+    std::string pred_outname = "preds_" + outsuffix_string + ".root";
     
     std::cout << "Loading BdNMC files... \n";
     TH1F* ldmNum = LoadLdmNum();
@@ -98,7 +98,6 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         double potAjust = i_dminf.DMSimuPOT;
         std::cout << "\nPOT ajust to: " << potAjust << std::endl;
         pred.AjustPOT(potAjust); //Adjust the signal POT according to the BdNMC simulation before making prediction
-//        pred.SetPOT(potAjust); //Adjust the signal POT according to the BdNMC simulation before making prediction
         
         double potset = pred.GetPOT();
 
@@ -125,9 +124,12 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
             data = spred.FakeData(pot);
         }
 	
-	TFile *fitFile = new TFile(outDir+Form("Fit_DM_%dMeV_", i_dm) + outsuffix, "recreate"); 
+	TFile *fitFile = new TFile(outDir+Form("Pred_DM_%dMeV_", i_dm) + outsuffix, "recreate"); 
 	fitFile->cd();
 	pred.SaveAs(&calc, fitFile, pred_outname);
+
+	fitFile->Close();
+	delete fitFile;
     }
 
     sw.Stop();
