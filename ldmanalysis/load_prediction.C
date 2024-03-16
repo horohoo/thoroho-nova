@@ -6,6 +6,7 @@ TH1F* LoadLdmNum();
 
 void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
 {
+  std::cout << "event started" << std::endl;
     TStopwatch sw;
     sw.Start();
 
@@ -19,17 +20,14 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
     
     //The calculator will be used to genreate MC prediction
     osc::OscCalcSingleElectron calc; 
-    
-    //Vars to be fitted
-    std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron,
-                                            &kFitIBkgScalingSingleElectron,
-                                            &kFitBkgScalingSingleElectron};
 
                                             
     //Cuts for event selection
     const Cut sel_cut   = ldmone::SingleElecEventCVNCutFlow[iCuts].cut;
     const Cut nuone_cut = nuone::kintType == 1098 && nuone::kisVtxCont == 1;
-    const Cut numu_cut  = !nuone_cut;
+    const Cut mec_cut = MEC;
+    const Cut nuecc_cut = kIsNueCC;
+    const Cut numu_cut  = !nuone_cut && !mec_cut && !nuecc_cut;
 
     std::vector<double> DMMass;
     std::vector<double> ULimit;
@@ -42,12 +40,14 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
     std::cout << "ldmscale: "  << ldmScale << std::endl;
     double bkgscale;
     double nuonescale;
-    std::string fnominal;    
+    double mecscale;
+    std::string fnominal;
     if(isFHC)
     {
         std::cout << "Loading FHC samples ... \n" << std::endl;
         bkgscale   = fhcbkgscale;
         nuonescale = fhcnuonescale;
+	mecscale   = fhcmecscale;
         
         fnominal.assign(ffhc);
     }
@@ -64,12 +64,13 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
     SpectrumLoader loaderldm(fldm);
     SpectrumLoader loadernuone(fnuone);
     SpectrumLoader loadernominal(fnominal);
+    SpectrumLoader loadermec(fmec);
     
     //bins and axis for the analysis
     //??how to fit a sub-range of the specra?
     const Binning bins  = Binning::Simple(20, 0, 0.02);
     const HistAxis etheta2Axis("E #theta^{2} (GeV Rad^{2})", bins, nuone::kETheta2);
-    NDPredictionSystsSingleElectron pred(loaderldm, loadernuone, loadernominal, etheta2Axis, sel_cut, sel_cut&&nuone_cut, sel_cut&&numu_cut, ana::kPPFXFluxCVWgt, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51);
+    NDPredictionSystsSingleElectron pred(loaderldm, loadernuone, loadernominal, loadermec, etheta2Axis, sel_cut, sel_cut&&nuone_cut, sel_cut&&numu_cut, sel_cut&&mec_cut, ana::kPPFXFluxCVWgt*kradWt, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51);
     
     std::cout << "\nLoading dark matter ... \n";
     loaderldm.Go();
@@ -77,6 +78,8 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
     loadernuone.Go();
     std::cout << "\nLoading nominal ...  \n";
     loadernominal.Go();
+    std::cout <<"\nLoading special MEC file ... \n";
+    loadermec.Go();
 
     std::cout << "\nFinished loading all samples ... \n";
 
@@ -104,6 +107,7 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         calc.SetAna(true);
         calc.SetBkgScale(bkgscale);
         calc.SetIBkgScale(nuonescale);
+	calc.SetMECScale(mecscale);
         calc.SetSigScale(ldmScale);
         calc.SetDMMass(i_dm);
         calc.SetDMFile(dmFile);
@@ -124,7 +128,7 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
             data = spred.FakeData(pot);
         }
 	
-	TFile *fitFile = new TFile(outDir+Form("Pred_DM_%dMeV_", i_dm) + outsuffix, "recreate"); 
+	TFile *fitFile = new TFile(outDir+Form("Prediction_DM_%dMeV_", i_dm) + outsuffix, "recreate"); 
 	fitFile->cd();
 	pred.SaveAs(&calc, fitFile, pred_outname);
 
@@ -144,7 +148,7 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
 TH1F* LoadLdmNum()
 {
     // For LDM POT calculation
-    TFile* bdnmcFile = TFile::Open("/nova/app/users/thoroho/ldmanalysis/NuMagMomentAna/data/ldmspectra/ldmprediction.root", "READ");
+    TFile* bdnmcFile = TFile::Open("/exp/nova/app/users/thoroho/ldmanalysis/NuMagMomentAna/data/ldmspectra/ldmprediction.root", "READ");
     if(!bdnmcFile)
     {
         std::cout << "\nBdNMC prediction file does not exist, exit." << std::endl;

@@ -153,26 +153,33 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
 
     TString outsuffix = options+Form("_sys_%s_%s_data_cut_%d.root", isFHC ? "fhc" : "rhs", mock ? "mock" : "fake", iCuts);
     std::string outsuffix_string(outsuffix.Data());
-    std::string pred_outname = "preds_" + outsuffix_string + ".root";
+    std::string pred_outname = "preds_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root.root";
+    std::cout << "pred_outname: " << pred_outname << std::endl;
+    //std::string pred_outname = "preds_" + outsuffix_string + ".root";
 
     //Vars to be fitted
     std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron,
                                             &kFitIBkgScalingSingleElectron,
-                                            &kFitBkgScalingSingleElectron};
+                                            &kFitBkgScalingSingleElectron,
+                                            &kFitMECScalingSingleElectron};
 
     //Seeds                                                                                                                   
-    std::vector<double> dmscale_seeds = {1e-20, 1e-5};
-    std::vector<double> ibkgscale_seeds = {1.04, 1.06};
-    std::vector<double> bkgscale_seeds = {0.94, 0.96};
+    std::vector<double> dmscale_seeds   = {1e-20, 1e-5};
+    std::vector<double> ibkgscale_seeds = {0.99, 1.01};//{1.04, 1.06};
+    std::vector<double> bkgscale_seeds  = {0.99, 1.01};//{0.94, 0.96};
+    std::vector<double> mecscale_seeds  = {0.99, 1.01};
     const SeedList& seedFitVars = SeedList({{&kFitSigScalingSingleElectron,  dmscale_seeds},
 	                                    {&kFitIBkgScalingSingleElectron, ibkgscale_seeds},
-	                                    {&kFitBkgScalingSingleElectron,  bkgscale_seeds}});
+					      {&kFitBkgScalingSingleElectron,  bkgscale_seeds},
+						{&kFitMECScalingSingleElectron, mecscale_seeds}});
 
 
     //Cuts for event selection
     const Cut sel_cut   = ldmone::SingleElecEventCVNCutFlow[iCuts].cut;
     const Cut nuone_cut = nuone::kintType == 1098 && nuone::kisVtxCont == 1;
-    const Cut numu_cut  = !nuone_cut;
+    const Cut mec_cut = MEC;
+    const Cut nuecc_cut = kIsNueCC;
+    const Cut numu_cut  = !nuone_cut && !mec_cut && !nuecc_cut;
 
     
     std::vector<double> DMMass;
@@ -181,17 +188,20 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
     std::vector<double> DMFit;
     std::vector<double> IBkgFit;
     std::vector<double> BkgFit;
+    std::vector<double> MECFit;
     std::vector<double> Chi2Fit;
 
     std::cout << "ldmscale: "  << ldmScale << std::endl;
     double bkgscale;
     double nuonescale;
+    double mecscale;
     std::string fnominal;
     if(isFHC)
       {
 	std::cout << "Loading FHC samples ... \n" << std::endl;
         bkgscale   = fhcbkgscale;
         nuonescale = fhcnuonescale;
+	mecscale = fhcmecscale;
 
         fnominal.assign(ffhc);
       }
@@ -208,12 +218,16 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
     SpectrumLoader loaderldm(fldm);
     SpectrumLoader loadernuone(fnuone);
     SpectrumLoader loadernominal(fnominal);
+    SpectrumLoader loadermec(fmec);
+
+    //std::vector<double> bin_edges = {0.0, 0.0005, 0.001, 0.0015, 0.002, 0.0025, 0.003, 0.0035, 0.004, 0.0045, 0.005, 0.0055, 0.006, 0.0065, 0.007, 0.0075, 0.008, 0.0085, 0.009, 0.0095, 0.01, 0.0105, 0.011, 0.0115, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018, 0.019, 0.02};
+    //const Binning bins  = Binning::Custom(bin_edges);
     const Binning bins  = Binning::Simple(20, 0, 0.02);
     const HistAxis etheta2Axis("E #theta^{2} (GeV Rad^{2})", bins, nuone::kETheta2);
-    NDPredictionSystsSingleElectron pred(loaderldm, loadernuone, loadernominal, etheta2Axis, sel_cut, sel_cut&&nuone_cut, sel_cut&&numu_cut, ana::kPPFXFluxCVWgt, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51);
+    NDPredictionSystsSingleElectron pred(loaderldm, loadernuone, loadernominal, loadermec, etheta2Axis, sel_cut, sel_cut&&nuone_cut, sel_cut&&numu_cut, sel_cut&&mec_cut, ana::kPPFXFluxCVWgt*kradWt, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51);
 
 
-    const double pot = 1.5e21;
+    const double pot = 1.25e21;
     for(auto i_dminf : dmInf)
     {
       int i_dm = i_dminf.DmMassPoints;
@@ -227,15 +241,19 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
 
       // Load the prediction from file
       std::cout << "Loading prediction of mass " << i_dm << " MeV from file..." << std::endl;
-      TFile *predFile = new TFile(outDir+Form("Pred_DM_%dMeV_", i_dm) + outsuffix);
+      std::cout << "Using file " << Form("Prediction_DM_%dMeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root", i_dm) << std::endl;
+      TFile *predFile = new TFile(outDir+Form("Prediction_DM_%dMeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root", i_dm));//outsuffix);
       predFile->cd();
       static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr = pred.LoadFrom(predFile, pred_outname);
 
-      std::cout << "POT set from file: " << pred_ptr->GetPOT() << std::endl;
+      double potAdjust = i_dminf.DMSimuPOT;
+      pred_ptr->AjustPOT(potAdjust);
+      std::cout << "Signal POT: " << pred_ptr->GetPOT() << std::endl;
 
       calc.SetAna(true);
       calc.SetBkgScale(bkgscale);
       calc.SetIBkgScale(nuonescale);
+      calc.SetMECScale(mecscale);
       calc.SetSigScale(ldmScale);
       calc.SetDMMass(i_dm);
       calc.SetDMFile(dmFile);
@@ -243,7 +261,7 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
       std::cout << "Prediction Loaded, making prediction... \n";
       Spectrum spred = pred_ptr->Predict(&calc);
 
-      //Generate data                                                                               
+      //Generate data                       
       Spectrum data = Spectrum::Uninitialized();
       if (mock)
         {
@@ -268,12 +286,14 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         auto thisminchi   = fitdm.Fit(&calc, auxShifts, seedFitVars, seedShifts, IFitter::kQuiet)->EvalMetricVal();
         double nominalVal = kFitBkgScalingSingleElectron.GetValue(&calc);
         double nuoneVal   = kFitIBkgScalingSingleElectron.GetValue(&calc);
+	double mecVal     = kFitMECScalingSingleElectron.GetValue(&calc);
         double ldmVal     = kFitSigScalingSingleElectron.GetValue(&calc);
                 
         std::cout << "Min Chi:" << thisminchi << std::endl;
         std::cout << "DM Y value  True: " << sqrt(ldmScale*epsilon4)*constY << ", Fitted scale: " << ldmVal << ", Y: "<< sqrt(ldmVal*epsilon4)*constY << std::endl;
         std::cout << "Nuone scale True: " << nuonescale << ", Fitted: " << nuoneVal << std::endl;
         std::cout << "Numi scale True: " << bkgscale << ", Fitted: " << nominalVal << std::endl;
+	std::cout << "MEC scale True: " << mecscale << ", Fitted: " << mecVal << std::endl;
         
         //Save the details for each mass point
         TFile * fitFile = new TFile(outDir+Form("Fit_DM_%dMeV_", i_dm)+outsuffix, "recreate");
@@ -322,10 +342,11 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         shortname    = "DM Y";
         minX         = 0.0;
         maxX         = i_dminf.DMExclC;
-        profVars     = {&kFitBkgScalingSingleElectron, &kFitIBkgScalingSingleElectron};
-        profvarnames = {"Bkg", "Nuone"};
+        profVars     = {&kFitBkgScalingSingleElectron, &kFitIBkgScalingSingleElectron, &kFitMECScalingSingleElectron};
+        profvarnames = {"Bkg", "Nuone", "MEC"};
         profseeds    = {{&kFitIBkgScalingSingleElectron, {nuoneVal}},
-                        {&kFitBkgScalingSingleElectron,  {nominalVal}}};
+                        {&kFitBkgScalingSingleElectron,  {nominalVal}},
+			{&kFitMECScalingSingleElectron, {mecVal}}};
         profsysseeds.emplace_back(std::move(auxShifts)); 
         
         std::map<const IFitVar*, TGraph*> profVarsMap;
@@ -350,6 +371,7 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         DMFit.push_back(ldmVal);
         BkgFit.push_back(nominalVal);
         IBkgFit.push_back(nuoneVal);
+	MECFit.push_back(mecVal);
         Chi2Fit.push_back(thisminchi);
 
         UScale.push_back(upperLimit);
@@ -384,14 +406,16 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         calc.SetDMFile(dmFile);
         calc.SetBkgScale(bkgscale);
         calc.SetIBkgScale(nuonescale);
+	calc.SetMECScale(mecscale);
         calc.SetSigScale(ldmScale);
         calc.SetDMMass(DMMass[i]);
 
-	TFile *predFile = new TFile(outDir+Form("Pred_DM_%dMeV_", i_dm) + outsuffix);
+	TFile *predFile = new TFile(outDir+Form("Prediction_DM_%dMeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root", i_dm));// + outsuffix);
 	predFile->cd();
 	static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr = pred.LoadFrom(predFile, pred_outname);
-	
         
+	exFile->cd();
+
         Spectrum spred = pred_ptr->Predict(&calc);
         int binnum;
         
@@ -417,9 +441,11 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         TH1* hFit   = NULL;
         TH1* hIBkg = NULL;
         TH1* hBkg  = NULL;
+	TH1* hMEC = NULL;
         
         calc.SetBkgScale(BkgFit[i]);
         calc.SetIBkgScale(IBkgFit[i]);
+	calc.SetMECScale(MECFit[i]);
         calc.SetSigScale(DMFit[i]);
         
         hFit = pred_ptr->Predict(&calc).ToTH1(pot, kBlack, 1);
@@ -438,8 +464,13 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         hBkg = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuTau, Current::kCC, Sign::kNu).ToTH1(pot, 13, 5);
         hBkg->SetName(Form("hNumi_%dMeV", i_dm));
         hBkg->SetFillColor(15);
+
+	hMEC = pred_ptr->PredictComponent(&calc, Flavors::kNuMuToNuE, Current::kCC, Sign::kNu).ToTH1(pot, 13, 5);
+	hMEC->SetName(Form("hMEC_%dMeV", i_dm));
+	hMEC->SetFillColor(15);
         
         hStackBkg->Add(hBkg);
+	hStackBkg->Add(hMEC);
         hStackBkg->Add(hIBkg);
         
         calc.SetSigScale(UScale[i]);
@@ -468,6 +499,7 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         
         THStack * hStackSig = new THStack(Form("hStackSig_%dMeV", i_dm), Form("hStackSig_%dMeV", i_dm));
         hStackSig->Add(hBkg);
+	hStackSig->Add(hMEC);
         hStackSig->Add(hIBkg);
         hStackSig->Add(hSig);
                 
@@ -515,6 +547,7 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         legend.AddEntry(hData, Form("%s Data", mock ? "Mock" : "Fake"));
         legend.AddEntry(hFit, Form("Fit Results, LL: %.3e", Chi2Fit[i]));
         legend.AddEntry(hIBkg, Form("#nu-e, True: %.3f, Fit: %.3f", nuonescale, IBkgFit[i]));
+	legend.AddEntry(hMEC, Form("MEC, True: %.f, Fit: %.f", mecscale, MECFit[i]));
         legend.AddEntry(hBkg,  Form("Others, True: %.3f, Fit: %.3f", bkgscale, BkgFit[i]));
         legend.AddEntry(hSig,  Form("#chi-e Mass: %dMeV, Y: %.3e", i_dm, ULimit[i]));
         legend.SetBorderSize(0);
@@ -539,6 +572,7 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         hFit->Write();
         hBkg->Write();
         hIBkg->Write();
+	hMEC->Write();
         
         hExDM->Write();
         hSig->Write();
@@ -818,7 +852,7 @@ TH1D* PullTerm(const SystShifts & shifts, bool sortName)
 TH1F* LoadLdmNum()
 {
     // For LDM POT calculation
-    TFile* bdnmcFile = TFile::Open("/nova/app/users/thoroho/ldmanalysis/NuMagMomentAna/data/ldmspectra/ldmprediction.root", "READ");
+    TFile* bdnmcFile = TFile::Open("/exp/nova/app/users/thoroho/ldmanalysis/NuMagMomentAna/data/ldmspectra/ldmprediction.root", "READ");
     if(!bdnmcFile)
     {
         std::cout << "\nBdNMC prediction file does not exist, exit." << std::endl;
