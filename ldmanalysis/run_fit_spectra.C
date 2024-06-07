@@ -36,7 +36,7 @@ TH1D* PullTerm(const SystShifts & shifts, bool sortName);
 TH1F* LoadLdmNum();
 
 
-void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
+void run_fit_spectra(int dmmass = 10, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
 {
     TStopwatch sw;
     sw.Start();
@@ -158,20 +158,23 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
     //std::string pred_outname = "preds_" + outsuffix_string + ".root";
 
     //Vars to be fitted
+    
     std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron,
                                             &kFitIBkgScalingSingleElectron,
                                             &kFitBkgScalingSingleElectron,
                                             &kFitMECScalingSingleElectron};
+    
+    //std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron};
 
-    //Seeds                                                                                                                   
+    //Seeds
     std::vector<double> dmscale_seeds   = {1e-20, 1e-5};
-    std::vector<double> ibkgscale_seeds = {0.99, 1.01};//{1.04, 1.06};
-    std::vector<double> bkgscale_seeds  = {0.99, 1.01};//{0.94, 0.96};
-    std::vector<double> mecscale_seeds  = {0.99, 1.01};
+    std::vector<double> ibkgscale_seeds = {1.00, 1.01};//{1.04, 1.06};
+    std::vector<double> bkgscale_seeds  = {1.00, 1.01};//{0.94, 0.96};
+    std::vector<double> mecscale_seeds  = {1.00, 1.01};
     const SeedList& seedFitVars = SeedList({{&kFitSigScalingSingleElectron,  dmscale_seeds},
-	                                    {&kFitIBkgScalingSingleElectron, ibkgscale_seeds},
-					      {&kFitBkgScalingSingleElectron,  bkgscale_seeds},
-						{&kFitMECScalingSingleElectron, mecscale_seeds}});
+    	                                    {&kFitIBkgScalingSingleElectron, ibkgscale_seeds},
+					    {&kFitBkgScalingSingleElectron,  bkgscale_seeds},
+					    {&kFitMECScalingSingleElectron, mecscale_seeds}});
 
 
     //Cuts for event selection
@@ -200,7 +203,7 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
       {
 	std::cout << "Loading FHC samples ... \n" << std::endl;
         bkgscale   = fhcbkgscale;
-        nuonescale = fhcnuonescale;
+        nuonescale = 0.93*fhcnuonescale;
 	mecscale = fhcmecscale;
 
         fnominal.assign(ffhc);
@@ -241,8 +244,8 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
 
       // Load the prediction from file
       std::cout << "Loading prediction of mass " << i_dm << " MeV from file..." << std::endl;
-      std::cout << "Using file " << Form("Prediction_DM_%dMeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root", i_dm) << std::endl;
-      TFile *predFile = new TFile(outDir+Form("Prediction_DM_%dMeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root", i_dm));//outsuffix);
+      std::cout << "Using file " << "Prediction_DM_5MeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root" << std::endl;
+      TFile *predFile = new TFile(outDir+"Prediction_DM_5MeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root");//outsuffix);
       predFile->cd();
       static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr = pred.LoadFrom(predFile, pred_outname);
 
@@ -273,6 +276,10 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
 	  std::cout <<"Building Fake Data... \n";
 	  data = spred.FakeData(pot);
         }
+
+      calc.SetBkgScale(1.0);
+      calc.SetIBkgScale(1.0);
+      calc.SetMECScale(1.0);
 
         std::cout << "\nFitting ...\n";
         const IExperiment* expt = new SingleSampleExperiment(&*pred_ptr, data);
@@ -410,7 +417,7 @@ void run_fit_spectra(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
         calc.SetSigScale(ldmScale);
         calc.SetDMMass(DMMass[i]);
 
-	TFile *predFile = new TFile(outDir+Form("Prediction_DM_%dMeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root", i_dm));// + outsuffix);
+	TFile *predFile = new TFile(outDir+"Prediction_DM_5MeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root");// + outsuffix);
 	predFile->cd();
 	static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr = pred.LoadFrom(predFile, pred_outname);
         

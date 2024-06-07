@@ -35,10 +35,13 @@ TGraph* DMProfile(const IExperiment* expt,
 TH1D* PullTerm(const SystShifts & shifts, bool sortName);
 TH1F* LoadLdmNum();
 
-void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
+
+void run_fit_spectra_plotting(int dmmass = 10, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
 {
     TStopwatch sw;
     sw.Start();
+
+    bool plotting = false;
 
     bool statonly  = options.Contains("statonly");
     bool ndsys     = options.Contains("nd");
@@ -47,7 +50,7 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
     bool xsecsys   = options.Contains("xsec");
     bool fullsys   = ndsys && fluxsys && pileupsys  && xsecsys;
     assert (!(statonly && (ndsys || fluxsys || pileupsys || xsecsys)));
-    
+
     if (statonly)
     {
         std::cout << "Fit with statistical uncertainties only...\n";
@@ -73,41 +76,37 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         std::cout << "Fit with statistical and cross section systematical uncertainties ...\n";
     }
 
-    TString outsuffix = options+Form("_sys_%s_%s_data_cut_%d.root", isFHC ? "fhc" : "rhc", mock ? "mock" : "fake", iCuts);
-
-    
-    std::cout << "Loading BdNMC files... \n";
     TH1F* ldmNum = LoadLdmNum();
-    
-    //The calculator will be used to genreate MC prediction
+
+    //The calculator will be used to generate MC prediction
     osc::OscCalcSingleElectron calc;
-    
-    //Systematics
+
+    //Systematics                                                        
     std::vector<const ISyst*> systs;
-    std::vector <SystShifts> seedShifts = {};    
-    SystShifts auxShifts = SystShifts::Nominal();  // A container to hold the best shifts of the Systs
-    
+    std::vector <SystShifts> seedShifts = {};
+    SystShifts auxShifts = SystShifts::Nominal();  // A container to hold the best shifts of the Systs 
+
     if (ndsys)
     {
-        std::cout << "Adding ND detector systematics... \n";
+	std::cout << "Adding ND detector systematics... \n";
         systs.push_back(&kNDldmCalibSyst);
         systs.push_back(&kNDldmLightSyst);
         systs.push_back(&kNDldmCherSyst);
-        
+
         for (double systshift:{-2, +2})
-        {
+	{
             SystShifts Shiftscali (&kNDldmCalibSyst, systshift);
             seedShifts.emplace_back(std::move(Shiftscali));
             SystShifts Shiftsllevl (&kNDldmLightSyst, systshift);
             seedShifts.emplace_back(std::move(Shiftsllevl));
             SystShifts Shiftscher (&kNDldmCherSyst, systshift);
             seedShifts.emplace_back(std::move(Shiftscher));
-        }
+	}
     }
 
     if (fluxsys)
-    {    
-        std::cout << "Adding ND flux systematics... \n";
+    {
+	std::cout << "Adding ND flux systematics... \n";
         systs.push_back(GetFluxPrincipalsND2020(0));
         systs.push_back(GetFluxPrincipalsND2020(1));
         systs.push_back(GetFluxPrincipalsND2020(2));
@@ -115,9 +114,9 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         systs.push_back(GetFluxPrincipalsND2020(4));
         systs.push_back(GetFluxPrincipalsND2020(5));
         systs.push_back(GetFluxPrincipalsND2020(6));
-        
+
         for (double systshift:{-2, +2})
-        {
+	{
             SystShifts ShiftFPP0 (GetFluxPrincipalsND2020(0), systshift);
             seedShifts.emplace_back(std::move(ShiftFPP0));
             SystShifts ShiftFPP1 (GetFluxPrincipalsND2020(1), systshift);
@@ -132,157 +131,233 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
             seedShifts.emplace_back(std::move(ShiftFPP5));
             SystShifts ShiftFPP6 (GetFluxPrincipalsND2020(6), systshift);
             seedShifts.emplace_back(std::move(ShiftFPP6));
-        }
+	}
     }
-    
+
     if (pileupsys)
-    {    
-        std::cout << "Adding pileup systematics... \n";
+    {
+	std::cout << "Adding pileup systematics... \n";
         systs.push_back(&kNDPileupEffectSyst);
-        
+
         for (double systshift:{-2, +2})
-        {
+	{
             SystShifts tempShifts (&kNDPileupEffectSyst, systshift);
             seedShifts.emplace_back(std::move(tempShifts));
-        }
+	}
     }
 
     if (xsecsys)
     {
-        std::cout << "Adding cross section systematics... \n";
-        std::vector<const ISyst*> XSectSys = getAllXsecSysts_2020_GSF();
+	std::cout << "Adding cross section systematics... \n";
+	std::vector<const ISyst*> XSectSys = getAllXsecSysts_2020_GSF();
         systs.insert(systs.end(), XSectSys.begin(), XSectSys.end());
     }
-    
+
+    TString outsuffix = options+Form("_sys_%s_%s_data_cut_%d.root", isFHC ? "fhc" : "rhs", mock ? "mock" : "fake", iCuts);
+    std::string outsuffix_string(outsuffix.Data());
+    std::string pred_outname = "preds_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root.root";
+    std::cout << "pred_outname: " << pred_outname << std::endl;
+    //std::string pred_outname = "preds_" + outsuffix_string + ".root";
+
     //Vars to be fitted
-    std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron,
-                                            &kFitIBkgScalingSingleElectron,
-                                            &kFitBkgScalingSingleElectron};
-                                            
+    
+    std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron};//,
+    //					    &kFitIBkgScalingSingleElectron,
+    //					    &kFitBkgScalingSingleElectron,
+    //					    &kFitMECScalingSingleElectron};
+
+    //std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron};
+
     //Seeds
     std::vector<double> dmscale_seeds   = {1e-20, 1e-5};
-    std::vector<double> ibkgscale_seeds = {1.04, 1.06};                                            
-    std::vector<double> bkgscale_seeds  = {0.94, 0.96};
-    const SeedList& seedFitVars = SeedList({{&kFitSigScalingSingleElectron,  dmscale_seeds  },
-                                            {&kFitIBkgScalingSingleElectron, ibkgscale_seeds},
-                                            {&kFitBkgScalingSingleElectron,  bkgscale_seeds }});
-                                            
+    std::vector<double> ibkgscale_seeds = {1.00, 1.01};//{1.04, 1.06};
+    std::vector<double> bkgscale_seeds  = {1.00, 1.01};//{0.94, 0.96};
+    std::vector<double> mecscale_seeds  = {1.00, 1.01};
+    const SeedList& seedFitVars = SeedList({{&kFitSigScalingSingleElectron,  dmscale_seeds}});//,
+    //    	  {&kFitIBkgScalingSingleElectron, ibkgscale_seeds},
+    //	    {&kFitBkgScalingSingleElectron,  bkgscale_seeds},
+    //	      {&kFitMECScalingSingleElectron, mecscale_seeds}});
+
+
     //Cuts for event selection
     const Cut sel_cut   = ldmone::SingleElecEventCVNCutFlow[iCuts].cut;
     const Cut nuone_cut = nuone::kintType == 1098 && nuone::kisVtxCont == 1;
-    const Cut numu_cut  = !nuone_cut;
+    const Cut mec_cut = MEC;
+    const Cut nuecc_cut = kIsNueCC;
+    const Cut numu_cut  = !nuone_cut && !mec_cut && !nuecc_cut;
 
-    //Data
-//    Spectrum data = LoadData();
-
+    
     std::vector<double> DMMass;
     std::vector<double> ULimit;
     std::vector<double> UScale;
     std::vector<double> DMFit;
     std::vector<double> IBkgFit;
     std::vector<double> BkgFit;
+    std::vector<double> MECFit;
     std::vector<double> Chi2Fit;
 
     std::cout << "ldmscale: "  << ldmScale << std::endl;
     double bkgscale;
     double nuonescale;
-    std::string fnominal;    
+    double mecscale;
+    std::string fnominal;
     if(isFHC)
-    {
-        std::cout << "Loading FHC samples ... \n" << std::endl;
+      {
+	std::cout << "Loading FHC samples ... \n" << std::endl;
         bkgscale   = fhcbkgscale;
         nuonescale = fhcnuonescale;
-        
+	mecscale = fhcmecscale;
+
         fnominal.assign(ffhc);
-    }
+      }
     else
-    {
-        std::cout << "Loading RHC samples ... \n" << std::endl;
+      {
+	std::cout << "Loading RHC samples ... \n" << std::endl;
         bkgscale   = rhcbkgscale;
         nuonescale = rhcnuonescale;
-        
-        fnominal.assign(frhc);
-    }
 
-    //Construct prediction
+        fnominal.assign(frhc);
+      }
+
+    // construct prediction (needed to LoadFrom() later)
     SpectrumLoader loaderldm(fldm);
     SpectrumLoader loadernuone(fnuone);
     SpectrumLoader loadernominal(fnominal);
-    
-    //bins and axis for the analysis
-    //??how to fit a sub-range of the specra?
+    SpectrumLoader loadermec(fmec);
+
+    //std::vector<double> bin_edges = {0.0, 0.0005, 0.001, 0.0015, 0.002, 0.0025, 0.003, 0.0035, 0.004, 0.0045, 0.005, 0.0055, 0.006, 0.0065, 0.007, 0.0075, 0.008, 0.0085, 0.009, 0.0095, 0.01, 0.0105, 0.011, 0.0115, 0.012, 0.013, 0.014, 0.015, 0.016, 0.017, 0.018, 0.019, 0.02};
+    //const Binning bins  = Binning::Custom(bin_edges);
     const Binning bins  = Binning::Simple(20, 0, 0.02);
     const HistAxis etheta2Axis("E #theta^{2} (GeV Rad^{2})", bins, nuone::kETheta2);
-    NDPredictionSystsSingleElectron pred(loaderldm, loadernuone, loadernominal, etheta2Axis, sel_cut, sel_cut&&nuone_cut, sel_cut&&numu_cut, ana::kPPFXFluxCVWgt, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51);
-    
-    std::cout << "\nLoading dark matter ... \n";
-    loaderldm.Go();
-    std::cout << "\nLoading nu-on-e ... \n";
-    loadernuone.Go();
-    std::cout << "\nLoading nominal ...  \n";
-    loadernominal.Go();
+    NDPredictionSystsSingleElectron pred(loaderldm, loadernuone, loadernominal, loadermec, etheta2Axis, sel_cut, sel_cut&&nuone_cut, sel_cut&&numu_cut, sel_cut&&mec_cut, ana::kPPFXFluxCVWgt*kradWt, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51);
 
-    //process at each DM mass point
-    const double pot = 1.5e21;//2.5e21
+
+    const double pot = 1.25e21;
+
+    //TH1* hData = NULL;
+    int i = 0;
     for(auto i_dminf : dmInf)
     {
-        int i_dm = i_dminf.DmMassPoints;
-        if (i_dm > dmmass)
-        {
-            break;
-        }
-        
-        double npred  = ldmNum->GetBinContent(ldmNum->FindBin(i_dm));
-        std::cout << "\nDM mass: " << i_dm << " MeV, Number of predicted LDM events: " << npred << std::endl;
-        
-        double potAjust = i_dminf.DMSimuPOT;
-        std::cout << "\nPOT ajust to: " << potAjust << std::endl;
-        pred.AjustPOT(potAjust); //Adjust the signal POT according to the BdNMC simulation before making prediction
-//        pred.SetPOT(potAjust); //Adjust the signal POT according to the BdNMC simulation before making prediction
-        
-        double potset = pred.GetPOT();
+      TH1* hData = NULL;
+      int i_dm = i_dminf.DmMassPoints;
+      if (i_dm > dmmass)
+      {
+	break;
+      }
+      if (i_dm < 9)
+      	{
+        continue;
+      }
 
-        calc.SetAna(true);
-        calc.SetBkgScale(bkgscale);
-        calc.SetIBkgScale(nuonescale);
-        calc.SetSigScale(ldmScale);
-        calc.SetDMMass(i_dm);
-        calc.SetDMFile(dmFile);
+      double npred = ldmNum->GetBinContent(ldmNum->FindBin(i_dm));
+      std::cout << "\nDM mass: " << i_dm << " MeV, Number of predicted LDM events: " << npred << std::endl;
 
-        std::cout << "Prediction Loaded, making prediction... \n";
-        Spectrum spred = pred.Predict(&calc);
-        
-        //Generate data
-        Spectrum data = Spectrum::Uninitialized();
-        if (mock)
+      // Load the prediction from file
+      std::cout << "Loading prediction of mass " << i_dm << " MeV from file..." << std::endl;
+      std::cout << "Using file " << "Prediction_DM_5MeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root" << std::endl;
+      TFile *predFile = new TFile(outDir+"Prediction_DM_5MeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root");//outsuffix);
+      predFile->cd();
+      static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr = pred.LoadFrom(predFile, pred_outname);
+
+      double potAdjust = i_dminf.DMSimuPOT;
+      pred_ptr->AjustPOT(potAdjust);
+      std::cout << "Signal POT: " << pred_ptr->GetPOT() << std::endl;
+
+      calc.SetAna(true);
+      calc.SetBkgScale(bkgscale);
+      calc.SetIBkgScale(nuonescale);
+      calc.SetMECScale(mecscale);
+      double maxX;
+      if (i_dm == 4) {
+	calc.SetSigScale(1.05E-7);
+	ldmScale = 1.05E-7;
+      }
+      if (i_dm == 5) {
+	calc.SetSigScale(2.36E-7);
+	ldmScale = 2.36E-7;
+      }
+      if (i_dm == 6) {
+	calc.SetSigScale(4.63E-7);
+	ldmScale = 4.63E-7;
+      }
+      if (i_dm == 7) {
+	calc.SetSigScale(9.14E-7);
+	ldmScale = 9.14E-7;
+      }
+      if (i_dm == 8) {
+	calc.SetSigScale(1.68E-6);
+	ldmScale = 1.68E-6;
+      }
+      if (i_dm == 9) {
+	calc.SetSigScale(2.62E-6);
+	ldmScale = 2.62E-6;
+      }
+      if (i_dm == 10) {
+	calc.SetSigScale(4.44E-6);
+	ldmScale = 4.44E-6;
+      }
+      if (i_dm == 40) {
+	calc.SetSigScale(4.2E-3);
+	ldmScale = 4.2E-3;
+      }
+      maxX = 10.*ldmScale;
+      calc.SetDMMass(i_dm);
+      calc.SetDMFile(dmFile);
+      //calc.SetSigScale(0.0);
+      //ldmScale = 0.0;
+
+      std::cout << "Prediction Loaded, making prediction... \n";
+      Spectrum spred = pred_ptr->Predict(&calc);
+
+      //Generate data                       
+      Spectrum data = Spectrum::Uninitialized();
+      if (mock)
         {
-            std::cout <<"Building Mock Data... \n";
-            data = spred.MockData(pot);
+	  std::cout <<"Building Mock Data... \n";
+	  data = spred.MockData(pot);
         }
-        else
+      else
         {
-            std::cout <<"Building Fake Data... \n";
-            data = spred.FakeData(pot);
-        }        
+	  std::cout <<"Building Fake Data... \n";
+	  data = spred.FakeData(pot);
+        }
+      if (i_dm < 50)
+	{
+	  hData = data.ToTH1(pot, 2, 1);
+	  hData->SetName("hData");
+	  hData->SetMarkerStyle(33);
+	  hData->Sumw2();
+	  //hData->Write();
+        }
+      for (int i=0; i<hData->GetNbinsX(); i++) {
+	std::cout << hData->GetBinContent(i) << std::endl;
+      }
+
+      //calc.SetBkgScale(1.0);
+      //calc.SetIBkgScale(1.0);
+      //calc.SetMECScale(1.0);
+      calc.SetSigScale(0.0);
 
         std::cout << "\nFitting ...\n";
-        const IExperiment* expt = new SingleSampleExperiment(&pred, data);  // ND is not impacted by cosmic
+        const IExperiment* expt = new SingleSampleExperiment(&*pred_ptr, data);
         
         // Find the best fit points
         double minichi = 1E20;
-        calc.SetSigScale(1e-30);
+        //calc.SetSigScale(1e-30);
         
         MinuitFitter fitdm(expt, fitvars, systs);        
         
-        auto thisminchi   = fitdm.Fit(&calc, auxShifts, seedFitVars, seedShifts, IFitter::kQuiet)->EvalMetricVal();
+        auto thisminchi   = fitdm.Fit(&calc, auxShifts, seedFitVars, seedShifts, IFitter::kQuiet)->EvalMetricVal(); //kQuiet //kVerbose
         double nominalVal = kFitBkgScalingSingleElectron.GetValue(&calc);
         double nuoneVal   = kFitIBkgScalingSingleElectron.GetValue(&calc);
+	double mecVal     = kFitMECScalingSingleElectron.GetValue(&calc);
         double ldmVal     = kFitSigScalingSingleElectron.GetValue(&calc);
                 
         std::cout << "Min Chi:" << thisminchi << std::endl;
         std::cout << "DM Y value  True: " << sqrt(ldmScale*epsilon4)*constY << ", Fitted scale: " << ldmVal << ", Y: "<< sqrt(ldmVal*epsilon4)*constY << std::endl;
         std::cout << "Nuone scale True: " << nuonescale << ", Fitted: " << nuoneVal << std::endl;
         std::cout << "Numi scale True: " << bkgscale << ", Fitted: " << nominalVal << std::endl;
+	std::cout << "MEC scale True: " << mecscale << ", Fitted: " << mecVal << std::endl;
         
         //Save the details for each mass point
         TFile * fitFile = new TFile(outDir+Form("Fit_DM_%dMeV_", i_dm)+outsuffix, "recreate");
@@ -291,7 +366,7 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         //Systematic pulls
         if(ndsys || fluxsys || pileupsys)
         {
-            std::cout << "Pull systermatics ... \n";
+            std::cout << "Pull systematics ... \n";
             TH1D* shifts = PullTerm(auxShifts, true);
             TString str = "Best fit " ;
             for (auto &v:fitvars)
@@ -320,7 +395,7 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         int steps = 2000;
         const IFitVar * fitvar;
         double minX;
-        double maxX;
+        //double maxX;
         std::vector <const IFitVar * > profVars;
         std::vector <TString> profvarnames;
         std::map  <const IFitVar *, std::vector <double> >profseeds;
@@ -330,11 +405,12 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         fitvar       = &kFitSigScalingSingleElectron;
         shortname    = "DM Y";
         minX         = 0.0;
-        maxX         = i_dminf.DMExclC;
-        profVars     = {&kFitBkgScalingSingleElectron, &kFitIBkgScalingSingleElectron};
-        profvarnames = {"Bkg", "Nuone"};
-        profseeds    = {{&kFitIBkgScalingSingleElectron, {nuoneVal}},
-                        {&kFitBkgScalingSingleElectron,  {nominalVal}}};
+        //maxX         = i_dminf.DMExclC;
+        profVars     = {};//&kFitBkgScalingSingleElectron, &kFitIBkgScalingSingleElectron, &kFitMECScalingSingleElectron};
+        profvarnames = {};//"Bkg", "Nuone", "MEC"};
+        profseeds    = {};//{&kFitIBkgScalingSingleElectron, {nuoneVal}},
+	//{&kFitBkgScalingSingleElectron,  {nominalVal}},
+	//		{&kFitMECScalingSingleElectron, {mecVal}}};
         profsysseeds.emplace_back(std::move(auxShifts)); 
         
         std::map<const IFitVar*, TGraph*> profVarsMap;
@@ -343,10 +419,9 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         double upperLimit;
         
         MakeMaps (profVars, profVarsMap, systs, profSystsMap);
-        TGraph* slice = DMSlice(expt, &calc, fitvar, steps, minX, maxX, thisminchi, profVars, systs,
-                                profseeds, profsysseeds, profVarsMap, profSystsMap, upperLimit);
+        TGraph* slice = DMSlice(expt, &calc, fitvar, steps, minX, maxX, thisminchi, profVars, systs, profseeds, profsysseeds, profVarsMap, profSystsMap, upperLimit);
 
-        if(i_dm > 5 && upperLimit < UScale.back() )
+        if(i_dm > 50 && upperLimit < UScale.back() )
         {
             std::cout << "\nCannot find limit for DM mass: " << i_dm << "MeV, skip this point\n";
             fitFile->Write();
@@ -359,6 +434,7 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         DMFit.push_back(ldmVal);
         BkgFit.push_back(nominalVal);
         IBkgFit.push_back(nuoneVal);
+	MECFit.push_back(mecVal);
         Chi2Fit.push_back(thisminchi);
 
         UScale.push_back(upperLimit);
@@ -370,85 +446,77 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         fitFile->Write();
         fitFile->Close();
         delete fitFile;
-    }
 
-    std::cout << "\nMaking confidence level ...\n";
-    TFile* exFile = new TFile(outDir+"Exclusion_"+outsuffix, "recreate");
-    exFile->cd();
-    TGraph* gNOvA = new TGraph(DMMass.size(), &*DMMass.begin(), &*ULimit.begin());
-    gNOvA->SetName(Form("gNOvA%s", isFHC ? "fhc" : "rhc"));
-    gNOvA->SetTitle("; m_{#chi}(MeV/c^{2}); Y=#epsilon^{2}#alpha^{'}(m_{#chi}/m_{V})^{4}");
-    gNOvA->Write();
-
-    std::cout << "\nPloting sample spectra ...\n";
-    TH1* hData = NULL;
-    Spectrum data = Spectrum::Uninitialized();    
-    for(int i = 0; i < DMMass.size(); i ++)
-    {
-        int i_dm = (int)DMMass[i];
+	if (plotting) {
+	std::cout << "\nPloting sample spectra ...\n";
+	TFile * exFile = new TFile(outDir+Form("Exclusion_DM_%dMeV_", i_dm)+outsuffix, "recreate");
+        
         calc.SetAna(true);
         calc.SetDMFile(dmFile);
-        calc.SetBkgScale(bkgscale);
-        calc.SetIBkgScale(nuonescale);
-        calc.SetSigScale(ldmScale);
-        calc.SetDMMass(DMMass[i]);
+        calc.SetBkgScale(nominalVal);
+        calc.SetIBkgScale(nuoneVal);
+	calc.SetMECScale(mecVal);
+        calc.SetSigScale(ldmVal);
+        calc.SetDMMass(i_dm);
         
-        Spectrum spred = pred.Predict(&calc);
+	exFile->cd();
+
+        //Spectrum spred = pred_ptr->Predict(&calc);
         int binnum;
-        
-        if(i == 0)
-        {        
-            if (mock)
-            {
-                data = spred.MockData(pot);
-            }
-            else
-            {
-                data = spred.FakeData(pot);
-            }
-            
-            hData = data.ToTH1(pot, 2, 1);
-            hData->SetName("hData");
-            hData->SetMarkerStyle(33);
-            hData->Sumw2();
-            hData->Write();
-        }
 
         THStack * hStackBkg = new THStack(Form("hStackBkg_%dMeV", i_dm), Form("hStackBkg_%dMeV", i_dm));
-        TH1* hFit   = NULL;
+        TH1* hFit = NULL;
+	TH1* hFitSyst = NULL;
+	
         TH1* hIBkg = NULL;
         TH1* hBkg  = NULL;
+	TH1* hMEC = NULL;
+
+	TH1* hIBkgSyst = NULL;
+	TH1* hBkgSyst = NULL;
+	TH1* hMECSyst = NULL;
         
-        calc.SetBkgScale(BkgFit[i]);
-        calc.SetIBkgScale(IBkgFit[i]);
-        calc.SetSigScale(DMFit[i]);
-        
-        hFit = pred.Predict(&calc).ToTH1(pot, kBlack, 1);
-        hFit->SetName(Form("hFit_%dMeV", i_dm));
+        hFit = pred_ptr->Predict(&calc).ToTH1(pot, kBlack, 1);
+	hFitSyst = pred_ptr->PredictSyst(&calc, auxShifts).ToTH1(pot, kBlack, 2);
+	
+        hFitSyst->SetName(Form("hFitSyst_%dMeV", i_dm));
         binnum = hFit->GetNbinsX();
         for(int bin = 1; bin <= binnum ; bin++)
         {
             hFit->SetBinError(bin, sqrt(hFit->GetBinContent(bin)));
+	    hFitSyst->SetBinError(bin, sqrt(hFitSyst->GetBinContent(bin)));
         }
         hFit->Sumw2();
+	hFitSyst->Sumw2();
 
-        hIBkg = pred.PredictComponent(&calc, Flavors::kNuEToNuMu, Current::kCC, Sign::kNu).ToTH1(pot, 16, 4);
+        hIBkg = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuMu, Current::kCC, Sign::kNu).ToTH1(pot, 16, 4);
+	hIBkgSyst = pred_ptr->PredictComponentSyst(&calc, auxShifts, Flavors::kNuEToNuMu, Current::kCC, Sign::kNu).ToTH1(pot, 16, 4);
         hIBkg->SetName(Form("hNuone_%dMeV", i_dm));
         hIBkg->SetFillColor(17);
+	hIBkgSyst->SetFillColor(17);
         
-        hBkg = pred.PredictComponent(&calc, Flavors::kNuEToNuTau, Current::kCC, Sign::kNu).ToTH1(pot, 13, 5);
+        hBkg = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuTau, Current::kCC, Sign::kNu).ToTH1(pot, 13, 5);
+	hBkgSyst = pred_ptr->PredictComponentSyst(&calc, auxShifts, Flavors::kNuEToNuTau, Current::kCC, Sign::kNu).ToTH1(pot, 13, 5);
         hBkg->SetName(Form("hNumi_%dMeV", i_dm));
         hBkg->SetFillColor(15);
+	hBkgSyst->SetFillColor(15);
+
+	hMEC = pred_ptr->PredictComponent(&calc, Flavors::kNuMuToNuE, Current::kCC, Sign::kNu).ToTH1(pot, 13, 5);
+	hMECSyst = pred_ptr->PredictComponentSyst(&calc, auxShifts, Flavors::kNuMuToNuE, Current::kCC, Sign::kNu).ToTH1(pot, 13, 5);
+	hMEC->SetName(Form("hMEC_%dMeV", i_dm));
+	hMEC->SetFillColor(15);
+	hMECSyst->SetFillColor(15);
         
         hStackBkg->Add(hBkg);
+	hStackBkg->Add(hMEC);
         hStackBkg->Add(hIBkg);
         
-        calc.SetSigScale(UScale[i]);
-        std::cout << "Plot spectrum for DM mass: " << i_dm << "MeV, Y: " << ULimit[i] << ", scale: " << UScale[i]
-                  << ", mass: " << dmInf[i].DmMassPoints  << ", effective POT: " << dmInf[i].DMSimuPOT*(bdnmcY/ULimit[i]) << std::endl;
+        calc.SetSigScale(upperLimit);
+        std::cout << "Plot spectrum for DM mass: " << i_dm << "MeV, Y: " << sqrt(upperLimit*epsilon4)*constY << ", scale: " << upperLimit
+                  << ", mass: " << i_dm  << ", effective POT: " << i_dminf.DMSimuPOT*(bdnmcY/sqrt(upperLimit*epsilon4)*constY) << std::endl;
 
         TH1* hExDM = NULL;
-        hExDM = pred.Predict(&calc).ToTH1(pot, i+3, 1);
+        hExDM = pred_ptr->Predict(&calc).ToTH1(pot, i+3, 1);
         hExDM->SetName(Form("hExDM_%dMeV", i_dm));
         binnum = hExDM->GetNbinsX();
         for(int bin = 1; bin <= binnum ; bin++)
@@ -458,19 +526,30 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         hExDM->Sumw2();
         
         TH1* hSig = NULL;
-        hSig = pred.PredictComponent(&calc, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, i+3, 1);
+	TH1* hSigSyst = NULL;
+        hSig = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, i+3, 1);
+	hSigSyst = pred_ptr->PredictComponentSyst(&calc, auxShifts, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, i+3, 1);
         hSig->SetName(Form("hSig_%dMeV", i_dm));
         hSig->SetFillColor(i+3);
+	hSigSyst->SetFillColor(i+3);
         binnum = hSig->GetNbinsX();
         for(int bin = 1; bin <= binnum ; bin++)
         {
             hSig->SetBinError(bin, sqrt(hSig->GetBinContent(bin)));
+	    hSigSyst->SetBinError(bin, sqrt(hSigSyst->GetBinContent(bin)));
         }
         
         THStack * hStackSig = new THStack(Form("hStackSig_%dMeV", i_dm), Form("hStackSig_%dMeV", i_dm));
         hStackSig->Add(hBkg);
+	hStackSig->Add(hMEC);
         hStackSig->Add(hIBkg);
         hStackSig->Add(hSig);
+
+	THStack * hStackSigSyst = new THStack(Form("hStackSigSyst_%dMeV", i_dm), Form("hStackSigSyst_%dMeV", i_dm));
+	hStackSigSyst->Add(hBkgSyst);
+	hStackSigSyst->Add(hMECSyst);
+	hStackSigSyst->Add(hIBkgSyst);
+	hStackSigSyst->Add(hSigSyst);
                 
         TH1* hRatioData = new TH1D(Form("hRatioData_%dMeV", i_dm), Form("hRatioData_%dMeV", i_dm), 20, 0, 0.02);
         hRatioData->Divide(hData, hFit, 1.0, 1.0, "B");
@@ -481,6 +560,16 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         hRatioData->GetXaxis()->SetTitle("E#theta^{2}(GeV Rad^{2})");
         hRatioData->GetYaxis()->SetTitle("Ratio to Fit Result");
         hRatioData->GetYaxis()->CenterTitle(true);
+
+	TH1* hRatioDataSyst = new TH1D(Form("hRatioDataSyst_%dMeV", i_dm), Form("hRatioDataSyst_%dMeV", i_dm), 20, 0, 0.02);
+        hRatioDataSyst->Divide(hData, hFitSyst, 1.0, 1.0, "B");
+        hRatioDataSyst->SetMarkerStyle(33);
+        hRatioDataSyst->SetMarkerColor(2);
+        hRatioDataSyst->SetLineColor(2);
+        hRatioDataSyst->SetLineStyle(1);
+        hRatioDataSyst->GetXaxis()->SetTitle("E#theta^{2}(GeV Rad^{2})");
+        hRatioDataSyst->GetYaxis()->SetTitle("Ratio to Fit Result");
+        hRatioDataSyst->GetYaxis()->CenterTitle(true);
 
         TH1* hRatioExDM = new TH1D(Form("hRatioExDM_%dMeV", i_dm), Form("hRatioExDM_%dMeV", i_dm), 20, 0, 0.02);        
         hRatioExDM->Divide(hExDM, hFit, 1.0, 1.0, "B");
@@ -506,6 +595,7 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         hStackSig->Draw("hist");
         hData->Draw("same P E");
         hFit->Draw("same hist");
+	hFitSyst->Draw("same hist");
         hStackSig->GetYaxis()->SetTitle(Form("Events (%.2e POT)", pot));
         hStackSig->GetYaxis()->CenterTitle(true);
         gStyle->SetOptTitle(1);
@@ -515,7 +605,9 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         TLegend legend(0.5, 0.35, 0.89, 0.88);  
         legend.AddEntry(hData, Form("%s Data", mock ? "Mock" : "Fake"));
         legend.AddEntry(hFit, Form("Fit Results, LL: %.3e", Chi2Fit[i]));
+	legend.AddEntry(hFitSyst, "Fit Results (with syst)");
         legend.AddEntry(hIBkg, Form("#nu-e, True: %.3f, Fit: %.3f", nuonescale, IBkgFit[i]));
+	legend.AddEntry(hMEC, Form("MEC, True: %.f, Fit: %.f", mecscale, MECFit[i]));
         legend.AddEntry(hBkg,  Form("Others, True: %.3f, Fit: %.3f", bkgscale, BkgFit[i]));
         legend.AddEntry(hSig,  Form("#chi-e Mass: %dMeV, Y: %.3e", i_dm, ULimit[i]));
         legend.SetBorderSize(0);
@@ -536,10 +628,44 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         l1->Draw("same");
                 
         cSpectra->Write();
+
+	TCanvas* cSpectraSyst = new TCanvas (Form("SpectraSyst_%dMeV", i_dm), Form("SpectraSyst_%dMeV", i_dm), 800, 800);
+        cSpectraSyst->SetBottomMargin(0.15);
+        cSpectraSyst->SetLeftMargin(0.15);
+        gStyle->SetPadBorderMode(0);
+        gStyle->SetFrameBorderMode(0);
+
+        cSpectraSyst->Divide(1, 2, small, small);
+
+        cSpectraSyst->cd(1);
+        gPad->SetBottomMargin(small);
+        hStackSigSyst->Draw("hist");
+        hData->Draw("same P E");
+        hFitSyst->Draw("same hist");
+        hStackSigSyst->GetYaxis()->SetTitle(Form("Events (%.2e POT)", pot));
+        hStackSigSyst->GetYaxis()->CenterTitle(true);
+        gStyle->SetOptTitle(1);
+        gPad->Modified();
+        gPad->Update();
+
+	cSpectraSyst->cd(2);
+        gPad->SetTopMargin(small);
+        gPad->SetTickx();
+        hRatioDataSyst->Draw("P E");
+        hRatioDataSyst->GetYaxis()->SetRangeUser(0.4, 1.6);
+        gStyle->SetOptTitle(0);
+        gPad->Modified();
+        gPad->Update();
+        TLine *l2 = new TLine(gPad->GetUxmin(), 1, gPad->GetUxmax(), 1);
+        l2->Draw("same");
+
+	cSpectraSyst->Write();
         
-        hFit->Write();
+	hData->Write();
+        hFitSyst->Write();
         hBkg->Write();
         hIBkg->Write();
+	hMEC->Write();
         
         hExDM->Write();
         hSig->Write();
@@ -549,11 +675,13 @@ void run_fit_spectra_exclusion(int dmmass = 100, TString options="nd_flux_pileup
         
         hStackBkg->Write();
         hStackSig->Write();
-    }
     
     exFile->Write();
     exFile->Close();
-    delete exFile;    
+    delete exFile;
+    i++;
+	}
+    }
     
     sw.Stop();
     std::cout << "\nAll done in: ";
@@ -628,6 +756,9 @@ TGraph* DMSlice(const IExperiment* expt,
         double x, y;
         ret->GetPoint(i, x, y);
         ret->SetPoint(i, sqrt(x*epsilon4)*constY, y > 0 ? y : 0);
+	//if (i = 0) {
+	std::cout << "i: " << i << " Y: " << sqrt(x*epsilon4)*constY << " Chi2: " << y << std::endl;
+	  //}
         if(y < Chi2for90CL)
         {
             upperLimit = x;
@@ -765,7 +896,7 @@ TGraph* DMProfile(const IExperiment* expt,
         SystShifts systshift = SystShifts::Nominal();
         
         // Zero-subtract the result graph
-        const double chi = fit.Fit(calc, systshift, seedPts, systSeedPts, MinuitFitter::kQuiet)->EvalMetricVal() - input_minchi;
+        const double chi = fit.Fit(calc, systshift, seedPts, systSeedPts, MinuitFitter::kQuiet)->EvalMetricVal();// - input_minchi;
         
         ret->SetPoint(ret->GetN(), x, chi);
     
@@ -819,7 +950,7 @@ TH1D* PullTerm(const SystShifts & shifts, bool sortName)
 TH1F* LoadLdmNum()
 {
     // For LDM POT calculation
-    TFile* bdnmcFile = TFile::Open("/nova/app/users/thoroho/ldmanalysis/NuMagMomentAna/data/ldmspectra/ldmprediction.root", "READ");
+    TFile* bdnmcFile = TFile::Open("/exp/nova/app/users/thoroho/ldmanalysis/NuMagMomentAna/data/ldmspectra/ldmprediction.root", "READ");
     if(!bdnmcFile)
     {
         std::cout << "\nBdNMC prediction file does not exist, exit." << std::endl;
