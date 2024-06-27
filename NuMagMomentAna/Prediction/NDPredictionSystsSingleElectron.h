@@ -89,8 +89,10 @@ namespace ana
                                     const Cut& cutSignal,
                                     const Cut& cutIBkg,
                                     const Cut& cutBkg,
+				    const Cut& cutMEC,
                                     const Weight& weightIBkg = kUnweighted,
-                                    const Weight& weightBkg  = kUnweighted);
+                                    const Weight& weightBkg = kUnweighted,
+				    const Weight& weightMEC = kUnweighted);
     virtual ~NDPredictionSystsSingleElectron();
 
     // un-hide inherited method stubs so we don't get warnings from the compiler
@@ -121,6 +123,8 @@ namespace ana
     // Find coefficients describing the ratios from the component  and the set of shifts
     std::vector<std::vector<Coeffs>> FitComponent(osc::IOscCalc* calc, const std::vector<double>& shifts, const std::vector<NDPredictionSingleElectron*>& preds, Flavors::Flavors_t flav, const std::string& systName) const;
     std::vector<std::vector<Coeffs>> FitRatios(const std::vector<double>& shifts, const std::vector<Eigen::ArrayXd>& ratios) const;
+
+    Spectrum GetPredictSyst(osc::IOscCalc* calc, const ISyst* syst, double shift);
 
     std::vector<const ISyst*> GetAllSysts() const;
 
@@ -166,5 +170,6 @@ namespace ana
     mutable std::vector<const ISyst*> fNDSignalSysts;
     mutable std::vector<const ISyst*> fNDIBkgSysts;
     mutable std::vector<const ISyst*> fNDBkgSysts;        
+    mutable std::vector<const ISyst*> fNDMECSysts;
   };
 }

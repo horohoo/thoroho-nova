@@ -13,11 +13,13 @@ namespace ana
                                                                    const Cut& cutSignal,
                                                                    const Cut& cutIBkg,
                                                                    const Cut& cutBkg,
+								   const Cut& cutMEC,
                                                                    const Weight& weightIBkg,
-                                                                   const Weight& weightBkg)
+                                                                   const Weight& weightBkg,
+								   const Weight& weightMEC)
   : fBinning(Spectrum::Uninitialized())
   {
-    NDPredictionSingleElectron* prednom = new NDPredictionSingleElectron(signalloaders, ibkgloaders, bkgloaders, mecloaders, axis, cutSignal, cutIBkg, cutBkg);
+    NDPredictionSingleElectron* prednom = new NDPredictionSingleElectron(signalloaders, ibkgloaders, bkgloaders, mecloaders, axis, cutSignal, cutIBkg, cutBkg, cutMEC);
       fPredNom.reset(prednom);
       
       SetDefaultNDSingleElectronSysts();
@@ -42,9 +44,9 @@ namespace ana
               shiftBkg.SetShift(fNDBkgSysts[i_syst], sigma);
 
 	      SystShifts shiftMEC;
-	      shiftMEC.SetShift(fNDMECSysts[i_syst], sigma); //check fNDMECSysts and how to define it
+	      shiftMEC.SetShift(fNDMECSysts[i_syst], sigma);
 
-              NDPredictionSingleElectron* preds = new NDPredictionSingleElectron(signalloaders, ibkgloaders, bkgloaders, mecloaders, axis, cutSignal, cutIBkg, cutBkg, shiftSignal, shiftIBkg, shiftBkg, shiftMEC,  weightIBkg, weightBkg);
+              NDPredictionSingleElectron* preds = new NDPredictionSingleElectron(signalloaders, ibkgloaders, bkgloaders, mecloaders, axis, cutSignal, cutIBkg, cutBkg, cutMEC, shiftSignal, shiftIBkg, shiftBkg, shiftMEC,  weightIBkg, weightBkg, weightMEC);
               sp.preds.emplace_back(preds);
           }
           fPreds.emplace(fNDSignalSysts[i_syst], std::move(sp));
@@ -106,6 +108,7 @@ namespace ana
       {
           ret += ShiftedComponent(calc, shift, flav, kSpectraOther);
       }
+      
       else if(flav == Flavors::kAll)
       {
           ret += ShiftedComponent(calc, shift, Flavors::kNuEToNuE,   kSpectraSignal);
@@ -125,14 +128,7 @@ namespace ana
       fNDSignalSysts.push_back(&kNDldmCalibSyst);
       fNDSignalSysts.push_back(&kNDldmLightSyst);
       fNDSignalSysts.push_back(&kNDldmCherSyst);
-      fNDSignalSysts.push_back(GetFluxPrincipalsND2020(0)); 
-      fNDSignalSysts.push_back(GetFluxPrincipalsND2020(1)); 
-      fNDSignalSysts.push_back(GetFluxPrincipalsND2020(2)); 
-      fNDSignalSysts.push_back(GetFluxPrincipalsND2020(3)); 
-      fNDSignalSysts.push_back(GetFluxPrincipalsND2020(4)); 
-      fNDSignalSysts.push_back(GetFluxPrincipalsND2020(5)); 
-      fNDSignalSysts.push_back(GetFluxPrincipalsND2020(6)); 
-      fNDSignalSysts.insert(fNDSignalSysts.end(), XSectSys.begin(), XSectSys.end());
+      fNDSignalSysts.push_back(&kLDMFluxSyst);
 
       fNDIBkgSysts.push_back(&kNDPileupEffectSyst);
       fNDIBkgSysts.push_back(&kNDNuoneCalibSyst);
@@ -171,7 +167,7 @@ namespace ana
       fNDMECSysts.push_back(GetFluxPrincipalsND2020(4));
       fNDMECSysts.push_back(GetFluxPrincipalsND2020(5));
       fNDMECSysts.push_back(GetFluxPrincipalsND2020(6));
-      fNDMECSysts.insert(fNDBkgSysts.end(), XSectSys.begin(), XSectSys.end());
+      fNDMECSysts.insert(fNDMECSysts.end(), XSectSys.begin(), XSectSys.end());
   }
   
   //----------------------------------------------------------------------
@@ -463,6 +459,34 @@ namespace ana
       
       return allsysts;
   } 
+
+  //----------------------------------------------------------------------
+  Spectrum NDPredictionSystsSingleElectron::GetPredictSyst(osc::IOscCalc* calc, const ISyst* syst, double shift)
+  {
+    if (fPreds.empty()) // No systs
+      {
+	std::cout << "No systs" << std::endl;
+	abort();
+      }
+    auto it = fPreds.find(syst);
+    if (it == fPreds.end())
+      {
+	std::cout << "NDPredictionSystsSingleElectron is not set up to handle the systematic: " << syst->ShortName() << std::endl;
+	abort();
+      }
+    
+    ShiftedPreds& sp = it->second;
+    long unsigned int i = 0;
+    for (; i < sp.shifts.size(); i++)
+      {
+	if (sp.shifts[i] == shift)
+	  {
+	    break;
+	  }
+      }
+    std::cout << "Spepctrum for " << sp.shifts[i] << " sigma shift" << std::endl;
+    return sp.preds[i]->Predict(calc);
+  }
 
   //----------------------------------------------------------------------
   void NDPredictionSystsSingleElectron::SetOscSeed(osc::IOscCalc* oscSeed)

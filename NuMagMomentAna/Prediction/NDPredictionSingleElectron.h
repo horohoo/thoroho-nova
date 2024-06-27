@@ -40,28 +40,36 @@ namespace ana
     static NDPredictionSingleElectron NDPredictionSingleElectron_c(SpectrumLoaderBase& signalloaders,
              SpectrumLoaderBase& ibkgloaders,
              SpectrumLoaderBase& bkgloaders,
+	     SpectrumLoaderBase& mecloaders,
              const HistAxis& axis,
              const Cut& cutSignal,
              const Cut& cutIBkg,
              const Cut& cutBkg,
+	     const Cut& cutMEC,
              const SystShifts& shiftSignal = kNoShift,
              const SystShifts& shiftIBkg   = kNoShift,
              const SystShifts& shiftBkg    = kNoShift,
+    	     const SystShifts& shiftMEC = kNoShift,
              const Weight& weightIBkg      = kUnweighted,
-             const Weight& weightBkg       = kUnweighted);
+	     const Weight& weightBkg       = kUnweighted,
+	     const Weight& weightMEC       = kUnweighted);
 
     NDPredictionSingleElectron(SpectrumLoaderBase& signalloaders,
              SpectrumLoaderBase& ibkgloaders,
              SpectrumLoaderBase& bkgloaders,
+	     SpectrumLoaderBase& mecloaders,
              const HistAxis& axis,
              const Cut& cutSignal,
              const Cut& cutIBkg,
              const Cut& cutBkg,
+	     const Cut& cutMEC,
              const SystShifts& shiftSignal = kNoShift,
              const SystShifts& shiftIBkg   = kNoShift,
              const SystShifts& shiftBkg    = kNoShift,
+	     const SystShifts& shiftMEC    = kNoShift,
              const Weight& weightIBkg      = kUnweighted,
-             const Weight& weightBkg       = kUnweighted);
+	     const Weight& weightBkg       = kUnweighted,
+	     const Weight& weightMEC       = kUnweighted);
              
 
     virtual ~NDPredictionSingleElectron() {};
@@ -99,6 +107,7 @@ namespace ana
     std::unique_ptr<NDSingleElectronSpectra> fSignalSpectra;
     std::unique_ptr<NDSingleElectronSpectra> fIrreducibleBkgSpectra;
     std::unique_ptr<NDSingleElectronSpectra> fBkgSpectra;
+    std::unique_ptr<NDSingleElectronSpectra> fMECSpectra;
     
     //---------------------------------------
     double fPOT;

@@ -17,17 +17,21 @@ namespace ana {
              SpectrumLoaderBase& signalloaders,
              SpectrumLoaderBase& ibkgloaders,
              SpectrumLoaderBase& bkgloaders,
+	     SpectrumLoaderBase& mecloaders,
              const HistAxis& axis,
              const Cut& cutSignal,
              const Cut& cutIBkg,
              const Cut& cutBkg,
+	     const Cut& cutMEC,
              const SystShifts& shiftSignal,
              const SystShifts& shiftIBkg,
              const SystShifts& shiftBkg,
+	     const SystShifts& shiftMEC,
              const Weight& weightIBkg,
-             const Weight& weightBkg)
+             const Weight& weightBkg,
+	     const Weight& weightMEC)
   {
-      NDPredictionSingleElectron extrap(signalloaders, ibkgloaders, bkgloaders, axis, cutSignal, cutIBkg, cutBkg, shiftSignal, shiftIBkg, shiftBkg, weightIBkg, weightBkg);
+    NDPredictionSingleElectron extrap(signalloaders, ibkgloaders, bkgloaders, mecloaders, axis, cutSignal, cutIBkg, cutBkg, cutMEC, shiftSignal, shiftIBkg, shiftBkg, shiftMEC, weightIBkg, weightBkg, weightMEC);
       return extrap;
   }
 
@@ -48,16 +52,23 @@ namespace ana {
           abort();
       }
 
+      std::cout << "Setting signal spectra ...\n";
       selcalc->SetSpectra(0);
       Spectrum ret = fSignalSpectra->Reweight(selcalc);
 //      SpectrumMirror* retmirror = (SpectrumMirror*)(&ret);
 //      retmirror->fHist.ResetErrors();
       
+      std::cout << "Setting irreducible background spectra ...\n";
       selcalc->SetSpectra(1);
       ret += fIrreducibleBkgSpectra->Reweight(selcalc);
 
+      std::cout << "Setting nominal background spectra ...\n";
       selcalc->SetSpectra(2);
       ret += fBkgSpectra->Reweight(selcalc);
+
+      std::cout << "Setting MEC spectra ...\n";
+      selcalc->SetSpectra(3);
+      ret += fMECSpectra->Reweight(selcalc);
       
       return ret;    
   }
@@ -94,6 +105,12 @@ namespace ana {
           Spectrum ret = fBkgSpectra->Reweight(selcalc);
           return ret;    
       }
+      else if (flav == Flavors::kNuMuToNuE) // MEC
+      {
+	  selcalc->SetSpectra(3);
+	  Spectrum ret = fMECSpectra->Reweight(selcalc);
+	  return ret;
+      }
       else if(flav == Flavors::kAll)
       {
           selcalc->SetSpectra(0);
@@ -104,6 +121,9 @@ namespace ana {
           
           selcalc->SetSpectra(2);
           ret += fBkgSpectra->Reweight(selcalc);
+	  
+	  selcalc->SetSpectra(3);
+	  ret += fMECSpectra->Reweight(selcalc);
           
           return ret;
       }
@@ -128,15 +148,19 @@ namespace ana {
              SpectrumLoaderBase& signalloaders,
              SpectrumLoaderBase& ibkgloaders,
              SpectrumLoaderBase& bkgloaders,
+	     SpectrumLoaderBase& mecloaders,
              const HistAxis& axis,
              const Cut& cutSignal,
              const Cut& cutIBkg,
              const Cut& cutBkg,
+	     const Cut& cutMEC,
              const SystShifts& shiftSignal,
              const SystShifts& shiftIBkg,
              const SystShifts& shiftBkg,
+	     const SystShifts& shiftMEC,
              const Weight& weightIBkg,
-             const Weight& weightBkg)
+             const Weight& weightBkg,
+	     const Weight& weightMEC)
    : fSignalSpectra(new NDSingleElectronSpectra(signalloaders, axis, 
                         HistAxis("Electron True Energy (GeV)", kTrueEBins, nuone::kTrueElE),
 //                        HistAxis("Electron True Energy (GeV)", kTrueEBins, nuone::kTrueElectronE),
@@ -147,6 +171,9 @@ namespace ana {
    , fBkgSpectra(new NDSingleElectronSpectra(bkgloaders, axis,
                         HistAxis("Electron True Energy (GeV)", kTrueEBins, nuone::kTrueElectronE),
                         cutBkg, shiftBkg, weightBkg))
+   , fMECSpectra(new NDSingleElectronSpectra(mecloaders, axis,
+					     HistAxis("Electron True Energy(GeV)", kTrueEBins, nuone::kTrueElectronE),
+					     cutMEC, shiftMEC, weightMEC))
 
   {
       ;
@@ -206,6 +233,7 @@ namespace ana {
       fSignalSpectra->SaveTo(dir->mkdir("signal"), "signal");
       fIrreducibleBkgSpectra->SaveTo(dir->mkdir("ibkg"), "ibkg");
       fBkgSpectra->SaveTo(dir->mkdir("bkg"), "bkg");
+      fMECSpectra->SaveTo(dir->mkdir("mec"), "mec");
 
       dir->Write();
       delete dir;
@@ -226,6 +254,7 @@ namespace ana {
       ret->fSignalSpectra = ana::LoadFrom<NDSingleElectronSpectra>(dir->GetDirectory("signal"), "signal");
       ret->fIrreducibleBkgSpectra = ana::LoadFrom<NDSingleElectronSpectra>(dir->GetDirectory("ibkg"), "ibkg");
       ret->fBkgSpectra = ana::LoadFrom<NDSingleElectronSpectra>(dir->GetDirectory("bkg"), "bkg");
+      ret->fMECSpectra = ana::LoadFrom<NDSingleElectronSpectra>(dir->GetDirectory("mec"), "mec");
 
 //      std::cout << "NDPredictionSingleElectron::LoadFrom, POT: " << ret->fSignalSpectra->GetPOT() <<std::endl;
       
