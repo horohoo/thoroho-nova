@@ -3,6 +3,10 @@
 namespace ana
 {
   const NDPileupEffectSyst kNDPileupEffectSyst;
+
+  const LDMFluxSyst kLDMFluxSyst;
+
+  const DummySyst kDummySyst;
   
   const std::string kSystDir = FindPackageDir("NuMagMomentAna")+"/data/systs";
   
@@ -113,4 +117,16 @@ namespace ana
   {
     weight *= 1+.106*sigma;
   }
+
+  //----------------------------------------------------------------------
+  void LDMFluxSyst:: Shift(double sigma, caf::SRProxy* /*sr*/, double& weight) const
+  {
+    weight *= 1+0.06*sigma;
+  }
+
+  void DummySyst:: Shift(double sigma, caf::SRProxy* /*sr*/, double& weight) const
+  {
+    weight *= 1+0.0*sigma;
+  }
+
 }

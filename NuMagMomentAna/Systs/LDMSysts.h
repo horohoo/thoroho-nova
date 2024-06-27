@@ -56,4 +56,31 @@ namespace ana
   };
   
   extern const NDPileupEffectSyst kNDPileupEffectSyst;
+
+  //----------------------------------------------------------------------
+
+  // A dummy systematic (if needed)
+  class DummySyst: public ISyst
+  {
+  public:
+  DummySyst() : ISyst("dummy", "dummy syst") {}
+
+    void Shift (double sigma, caf::SRProxy* sr, double& weight) const override;
+  };
+
+  extern const DummySyst kDummySyst;
+
+  //---------------------------------------------------------------------
+
+  // The systematic for LDM flux
+  class LDMFluxSyst: public ISyst
+  {
+  public:
+    LDMFluxSyst() : ISyst("flux", "LDM Flux") {}
+
+    void Shift (double sigma, caf::SRProxy* sr, double& weight) const override;
+  };
+
+  extern const LDMFluxSyst kLDMFluxSyst;
+
 } // namespace
