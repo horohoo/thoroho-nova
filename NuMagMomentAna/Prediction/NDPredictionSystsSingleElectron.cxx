@@ -25,12 +25,12 @@ namespace ana
       SetDefaultNDSingleElectronSysts();
       
       for(int i_syst = 0; i_syst < (int)fNDSignalSysts.size(); ++ i_syst)
-      {          
+      {
           ShiftedPreds sp;
           sp.systName = fNDSignalSysts[i_syst]->ShortName();
           sp.shifts = {-3, -2, -1, 0, +1, +2, +3};
           
-//          std::cout << "NDPredictionSystsSingleElectron is processing " << sp.systName << "... \n";
+          std::cout << "NDPredictionSystsSingleElectron is processing " << sp.systName << "... \n";
           
           for(int sigma: sp.shifts)
           {
@@ -50,7 +50,41 @@ namespace ana
               sp.preds.emplace_back(preds);
           }
           fPreds.emplace(fNDSignalSysts[i_syst], std::move(sp));
-      }  
+	  if (fNDIBkgSysts[i_syst]->ShortName() != fNDSignalSysts[i_syst]->ShortName()) {
+	  }
+      }
+
+      for(int i_syst = 0; i_syst < (int)fNDIBkgSysts.size(); ++ i_syst)
+      {
+	// loop through background systs to collect any that were dummy systs in the signal
+	if (fNDIBkgSysts[i_syst]->ShortName() != fNDSignalSysts[i_syst]->ShortName())
+	{
+	  ShiftedPreds sp;
+	  sp.systName = fNDIBkgSysts[i_syst]->ShortName();
+	  sp.shifts = {-3, -2, -1, 0, +1, +2, +3};
+	  
+	  std::cout << "NDPredictionSystsSingleElectron is processing " << sp.systName << "... \n";
+
+	  for(int sigma: sp.shifts)
+	    {
+	      SystShifts shiftSignal;
+	      shiftSignal.SetShift(fNDSignalSysts[i_syst], sigma);
+	      
+	      SystShifts shiftIBkg;
+	      shiftIBkg.SetShift(fNDIBkgSysts[i_syst], sigma);
+	      
+	      SystShifts shiftBkg;
+	      shiftBkg.SetShift(fNDBkgSysts[i_syst], sigma);
+	      
+	      SystShifts shiftMEC;
+	      shiftMEC.SetShift(fNDMECSysts[i_syst], sigma);
+	      
+	      NDPredictionSingleElectron* preds = new NDPredictionSingleElectron(signalloaders, ibkgloaders, bkgloaders, mecloaders, axis, cutSignal, cutIBkg, cutBkg, cutMEC, shiftSignal, shiftIBkg, shiftBkg, shiftMEC,  weightIBkg, weightBkg, weightMEC);
+	      sp.preds.emplace_back(preds);
+	    }
+	  fPreds.emplace(fNDIBkgSysts[i_syst], std::move(sp));
+	}
+      }
 
       std::cout << "NDPredictionSystsSingleElectron constructed. \n";
   }
@@ -128,9 +162,19 @@ namespace ana
       fNDSignalSysts.push_back(&kNDldmCalibSyst);
       fNDSignalSysts.push_back(&kNDldmLightSyst);
       fNDSignalSysts.push_back(&kNDldmCherSyst);
+      fNDSignalSysts.push_back(&kDummySyst);
+      fNDSignalSysts.push_back(&kDummySyst);
+      fNDSignalSysts.push_back(&kDummySyst);
+      fNDSignalSysts.push_back(&kDummySyst);
+      fNDSignalSysts.push_back(&kDummySyst);
+      fNDSignalSysts.push_back(&kDummySyst);
+      fNDSignalSysts.push_back(&kDummySyst);
       fNDSignalSysts.push_back(&kLDMFluxSyst);
+      for (long unsigned int i=0; i < XSectSys.size(); i++) {
+	fNDSignalSysts.push_back(&kDummySyst);
+      }
 
-      fNDIBkgSysts.push_back(&kNDPileupEffectSyst);
+      fNDIBkgSysts.push_back(&kDummySyst);
       fNDIBkgSysts.push_back(&kNDNuoneCalibSyst);
       fNDIBkgSysts.push_back(&kNDNuoneLightSyst);
       fNDIBkgSysts.push_back(&kNDNuoneCherSyst);
@@ -141,9 +185,10 @@ namespace ana
       fNDIBkgSysts.push_back(GetFluxPrincipalsND2020(4)); 
       fNDIBkgSysts.push_back(GetFluxPrincipalsND2020(5)); 
       fNDIBkgSysts.push_back(GetFluxPrincipalsND2020(6)); 
+      fNDIBkgSysts.push_back(&kDummySyst);
       fNDIBkgSysts.insert(fNDIBkgSysts.end(), XSectSys.begin(), XSectSys.end());
 
-      fNDBkgSysts.push_back(&kNDPileupEffectSyst);
+      fNDBkgSysts.push_back(&kDummySyst);
       fNDBkgSysts.push_back(&kNDNumiCalibSyst);
       fNDBkgSysts.push_back(&kNDNumiLightSyst);
       fNDBkgSysts.push_back(&kNDNumiCherSyst);
@@ -153,10 +198,11 @@ namespace ana
       fNDBkgSysts.push_back(GetFluxPrincipalsND2020(3)); 
       fNDBkgSysts.push_back(GetFluxPrincipalsND2020(4)); 
       fNDBkgSysts.push_back(GetFluxPrincipalsND2020(5)); 
-      fNDBkgSysts.push_back(GetFluxPrincipalsND2020(6)); 
+      fNDBkgSysts.push_back(GetFluxPrincipalsND2020(6));
+      fNDBkgSysts.push_back(&kDummySyst);
       fNDBkgSysts.insert(fNDBkgSysts.end(), XSectSys.begin(), XSectSys.end());
 
-      fNDMECSysts.push_back(&kNDPileupEffectSyst);
+      fNDMECSysts.push_back(&kDummySyst);
       fNDMECSysts.push_back(&kNDNumiCalibSyst);
       fNDMECSysts.push_back(&kNDNumiLightSyst);
       fNDMECSysts.push_back(&kNDNumiCherSyst);
@@ -167,6 +213,7 @@ namespace ana
       fNDMECSysts.push_back(GetFluxPrincipalsND2020(4));
       fNDMECSysts.push_back(GetFluxPrincipalsND2020(5));
       fNDMECSysts.push_back(GetFluxPrincipalsND2020(6));
+      fNDMECSysts.push_back(&kDummySyst);
       fNDMECSysts.insert(fNDMECSysts.end(), XSectSys.begin(), XSectSys.end());
   }
   

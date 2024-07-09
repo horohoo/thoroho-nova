@@ -36,7 +36,7 @@ TH1D* PullTerm(const SystShifts & shifts, bool sortName);
 TH1F* LoadLdmNum();
 
 
-void run_fit_spectra(int dmmass = 10, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
+void run_fit_spectra(int dmmass = 200, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
 {
     TStopwatch sw;
     sw.Start();
@@ -112,6 +112,7 @@ void run_fit_spectra(int dmmass = 10, TString options="nd_flux_pileup_xsec", int
         systs.push_back(GetFluxPrincipalsND2020(4));
         systs.push_back(GetFluxPrincipalsND2020(5));
         systs.push_back(GetFluxPrincipalsND2020(6));
+	systs.push_back(&kLDMFluxSyst);
 
         for (double systshift:{-2, +2})
 	{
@@ -129,6 +130,8 @@ void run_fit_spectra(int dmmass = 10, TString options="nd_flux_pileup_xsec", int
             seedShifts.emplace_back(std::move(ShiftFPP5));
             SystShifts ShiftFPP6 (GetFluxPrincipalsND2020(6), systshift);
             seedShifts.emplace_back(std::move(ShiftFPP6));
+	    SystShifts ShiftLDMFlux (&kLDMFluxSyst, systshift);
+	    seedShifts.emplace_back(std::move(ShiftLDMFlux));
 	}
     }
 
@@ -159,10 +162,7 @@ void run_fit_spectra(int dmmass = 10, TString options="nd_flux_pileup_xsec", int
 
     //Vars to be fitted
     
-    std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron,
-                                            &kFitIBkgScalingSingleElectron,
-                                            &kFitBkgScalingSingleElectron,
-                                            &kFitMECScalingSingleElectron};
+    std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron};
     
     //std::vector <const IFitVar*> fitvars = {&kFitSigScalingSingleElectron};
 
@@ -171,10 +171,7 @@ void run_fit_spectra(int dmmass = 10, TString options="nd_flux_pileup_xsec", int
     std::vector<double> ibkgscale_seeds = {1.00, 1.01};//{1.04, 1.06};
     std::vector<double> bkgscale_seeds  = {1.00, 1.01};//{0.94, 0.96};
     std::vector<double> mecscale_seeds  = {1.00, 1.01};
-    const SeedList& seedFitVars = SeedList({{&kFitSigScalingSingleElectron,  dmscale_seeds},
-    	                                    {&kFitIBkgScalingSingleElectron, ibkgscale_seeds},
-					    {&kFitBkgScalingSingleElectron,  bkgscale_seeds},
-					    {&kFitMECScalingSingleElectron, mecscale_seeds}});
+    const SeedList& seedFitVars = SeedList({{&kFitSigScalingSingleElectron,  dmscale_seeds}});
 
 
     //Cuts for event selection
@@ -203,7 +200,7 @@ void run_fit_spectra(int dmmass = 10, TString options="nd_flux_pileup_xsec", int
       {
 	std::cout << "Loading FHC samples ... \n" << std::endl;
         bkgscale   = fhcbkgscale;
-        nuonescale = 0.93*fhcnuonescale;
+        nuonescale = fhcnuonescale;
 	mecscale = fhcmecscale;
 
         fnominal.assign(ffhc);
@@ -349,11 +346,9 @@ void run_fit_spectra(int dmmass = 10, TString options="nd_flux_pileup_xsec", int
         shortname    = "DM Y";
         minX         = 0.0;
         maxX         = i_dminf.DMExclC;
-        profVars     = {&kFitBkgScalingSingleElectron, &kFitIBkgScalingSingleElectron, &kFitMECScalingSingleElectron};
-        profvarnames = {"Bkg", "Nuone", "MEC"};
-        profseeds    = {{&kFitIBkgScalingSingleElectron, {nuoneVal}},
-                        {&kFitBkgScalingSingleElectron,  {nominalVal}},
-			{&kFitMECScalingSingleElectron, {mecVal}}};
+        profVars     = {};
+        profvarnames = {};
+        profseeds    = {};
         profsysseeds.emplace_back(std::move(auxShifts)); 
         
         std::map<const IFitVar*, TGraph*> profVarsMap;
