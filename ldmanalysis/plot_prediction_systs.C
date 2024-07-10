@@ -21,7 +21,7 @@ void plot_prediction_systs(int dmmass = 200, TString options="nd_flux_pileup_xse
     osc::OscCalcSingleElectron calc;
 
 
-    std::vector<int> shifts = {+3, +2, +1, 0, -1, -2, -3};
+    std::vector<int> shifts = {+1, 0, -1};
     std::vector<const ISyst*> systs;
     
     systs.push_back(&kNDldmCalibSyst);
@@ -62,9 +62,17 @@ void plot_prediction_systs(int dmmass = 200, TString options="nd_flux_pileup_xse
 
     const double pot = 1.25e21;
 
-    TFile *predFile = new TFile(outDir+"Prediction_DM_5MeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root");
+    TFile *predFile = new TFile(outDir+"Prediction_DM_1MeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root");
     predFile->cd();
-    static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr = pred.LoadFrom((predFile, pred_outname);
+    static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr = pred.LoadFrom(predFile, pred_outname);
+
+    TFile *predFile10 = new TFile(outDir+"Prediction_DM_10MeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root");
+    predFile10->cd();
+    static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr10 = pred.LoadFrom(predFile10, pred_outname);
+
+    TFile *predFile100 = new TFile(outDir+"Prediction_DM_100MeV_nd_flux_pileup_xsec_sys_fhc_fake_data_cut_5.root");
+    predFile100->cd();
+    static std::unique_ptr<NDPredictionSystsSingleElectron> pred_ptr100 = pred.LoadFrom(predFile100, pred_outname);
     
     TFile* exFile = new TFile(pdfDir+"PredictionSysts.root", "recreate");
     exFile->cd();
@@ -81,16 +89,16 @@ void plot_prediction_systs(int dmmass = 200, TString options="nd_flux_pileup_xse
       TCanvas* cBkg = new TCanvas (Form("Bkg_%s", syst->ShortName().c_str()), Form("Bkg_%s", syst->ShortName().c_str()), 800, 600);
       TCanvas* cSig1 = new TCanvas (Form("Sig_1MeV_%s", syst->ShortName().c_str()), Form("Sig_1MeV_%s", syst->ShortName()), 800, 600);
       TCanvas* cSig10 = new TCanvas (Form("Sig_10MeV__%s", syst->ShortName().c_str()), Form("Sig_10MeV__%s", syst->ShortName().c_str()), 800, 600);
-      TCanvas* cSig20 = new TCanvas (Form("Sig_20MeV_%s", syst->ShortName().c_str()), Form("Sig_20MeV_%s", syst->ShortName().c_str()), 800, 600);
+      //TCanvas* cSig20 = new TCanvas (Form("Sig_20MeV_%s", syst->ShortName().c_str()), Form("Sig_20MeV_%s", syst->ShortName().c_str()), 800, 600);
       TCanvas* cSig100 = new TCanvas (Form("Sig_100MeV_%s", syst->ShortName().c_str()), Form("Sig_100MeV_%s", syst->ShortName().c_str()), 800, 600);
 
       for (int shift : shifts) {
 
 	SystShifts systshift (syst, shift);
 	
-	TH1* hIBkg = NULL;//new TH1F();
-	TH1* hBkg  = NULL;//new TH1F();
-	TH1* hMEC = NULL;//new TH1F();
+	TH1* hIBkg = NULL;
+	TH1* hBkg  = NULL;
+	TH1* hMEC = NULL;
 
         hIBkg = pred_ptr->PredictComponentSyst(&calc, systshift, Flavors::kNuEToNuMu, Current::kCC, Sign::kNu).ToTH1(pot, 1, 5);
         hBkg = pred_ptr->PredictComponentSyst(&calc, systshift, Flavors::kNuEToNuTau, Current::kCC, Sign::kNu).ToTH1(pot, 1, 5);
@@ -105,7 +113,7 @@ void plot_prediction_systs(int dmmass = 200, TString options="nd_flux_pileup_xse
 	hBkg->SetLineStyle(StyleShift(shift));
 	hBkg->SetLineWidth(4);
 
-	if (shift == 3) {
+	if (shift == 1) {
 	  hBkg->Draw("histo");
 	  hBkg->GetXaxis()->SetTitle("E#theta^{2}(GeV Rad^{2})");
 	}
@@ -114,13 +122,13 @@ void plot_prediction_systs(int dmmass = 200, TString options="nd_flux_pileup_xse
 	}
 
 	cSig1->cd();
-        calc.SetSigScale(1);
+        calc.SetDMMass(1);
         TH1* hSig1 = NULL;//new TH1F();
-        hSig1 = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, ColorShift(shift), 2);
+        hSig1 = pred_ptr->PredictComponentSyst(&calc, systshift, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, ColorShift(shift), 2);
 	hSig1->SetLineColor(ColorShift(shift));
 	hSig1->SetLineStyle(StyleShift(shift));
 	hSig1->SetLineWidth(4);
-	if (shift == 3) {
+	if (shift == 1) {
 	  hSig1->Draw("histo");
 	  hSig1->GetXaxis()->SetTitle("E#theta^{2}(GeV Rad^{2})");
 	}
@@ -129,43 +137,43 @@ void plot_prediction_systs(int dmmass = 200, TString options="nd_flux_pileup_xse
 	}
 
 	cSig10->cd();
-        calc.SetSigScale(10);
+        calc.SetDMMass(10);
         TH1* hSig10 = NULL;
-        hSig10 = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, ColorShift(shift), 2);
+        hSig10 = pred_ptr10->PredictComponentSyst(&calc, systshift, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, ColorShift(shift), 2);
         hSig10->SetLineColor(ColorShift(shift));
         hSig10->SetLineStyle(StyleShift(shift));
         hSig10->SetLineWidth(4);
-        if (shift == 3) {
+        if (shift == 1) {
           hSig10->Draw("histo");
 	  hSig10->GetXaxis()->SetTitle("E#theta^{2}(GeV Rad^{2})");
 	}
         else {
           hSig10->Draw("same hist");
 	}
-
-	cSig20->cd();
-        calc.SetSigScale(20);
+	
+	/*cSig20->cd();
+        calc.SetDMMass(20);
         TH1* hSig20 = NULL;
-        hSig20 = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, ColorShift(shift), 2);
+        hSig20 = pred_ptr->PredictComponentSyst(&calc, systshift, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, ColorShift(shift), 2);
         hSig20->SetLineColor(ColorShift(shift));
         hSig20->SetLineStyle(StyleShift(shift));
         hSig20->SetLineWidth(4);
-        if (shift == 3) {
+        if (shift == 1) {
           hSig20->Draw("histo");
           hSig20->GetXaxis()->SetTitle("E#theta^{2}(GeV Rad^{2})");
         }
         else {
           hSig20->Draw("same hist");
-        }
+	  }*/
 
 	cSig100->cd();
-        calc.SetSigScale(100);
+        calc.SetDMMass(100);
         TH1* hSig100 = NULL;
-        hSig100 = pred_ptr->PredictComponent(&calc, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, ColorShift(shift), 2);
+        hSig100 = pred_ptr100->PredictComponentSyst(&calc, systshift, Flavors::kNuEToNuE, Current::kCC, Sign::kNu).ToTH1(pot, ColorShift(shift), 2);
         hSig100->SetLineColor(ColorShift(shift));
         hSig100->SetLineStyle(StyleShift(shift));
         hSig100->SetLineWidth(4);
-        if (shift == 3) {
+        if (shift == 1) {
           hSig100->Draw("histo");
           hSig100->GetXaxis()->SetTitle("E#theta^{2}(GeV Rad^{2})");
         }
@@ -176,14 +184,14 @@ void plot_prediction_systs(int dmmass = 200, TString options="nd_flux_pileup_xse
       cBkg->Write();
       cSig1->Write();
       cSig10->Write();
-      cSig20->Write();
+      //cSig20->Write();
       cSig100->Write();
 
-      cBkg->SaveAs(pdfDir+Form("Bkg_%s.root", syst->ShortName().c_str()));
-      cSig1->SaveAs(pdfDir+Form("Sig_1MeV_%s.root", syst->ShortName().c_str()));
-      cSig10->SaveAs(pdfDir+Form("Sig_10MeV_%s.root", syst->ShortName().c_str()));
-      cSig20->SaveAs(pdfDir+Form("Sig_20MeV__%s.root", syst->ShortName().c_str()));
-      cSig100->SaveAs(pdfDir+Form("Sig_100MeV_%s.root", syst->ShortName().c_str()));
+      cBkg->SaveAs(pdfDir+Form("Bkg_%s.pdf", syst->ShortName().c_str()));
+      cSig1->SaveAs(pdfDir+Form("Sig_1MeV_%s.pdf", syst->ShortName().c_str()));
+      cSig10->SaveAs(pdfDir+Form("Sig_10MeV_%s.pdf", syst->ShortName().c_str()));
+      //cSig20->SaveAs(pdfDir+Form("Sig_20MeV__%s.pdf", syst->ShortName().c_str()));
+      cSig100->SaveAs(pdfDir+Form("Sig_100MeV_%s.pdf", syst->ShortName().c_str()));
 
     }
     
@@ -204,17 +212,13 @@ int ColorShift(int shift)
     {
       color = 1;
     }
-  if (shift == 1 || shift == -1) // systematic shift by 1-sigma
-    {
-      color = 417;
-    }
-  if (shift == 2 || shift == -2) // systematic shift by 2-sigma
+  if (shift == 1) // systematic shift by 1-sigma
     {
       color = 600;
     }
-  if (shift == 3 || shift == -3) // systematic shift by 3-sigma
+  if (shift == -1)
     {
-      color = 881;
+      color = 632;
     }
   return color;
 }
@@ -226,10 +230,10 @@ int StyleShift(int shift)
     {
       style = 1;
     }
-  else
+  else // shifted by systematic
     {
       style = 2;
-    }// shifted by systematic
+    }
   return style;
 }
 
