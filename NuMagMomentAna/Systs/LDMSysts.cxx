@@ -82,7 +82,7 @@ namespace ana
       double ret = 1.0;
       if(sigma < 0)
       {
-          ret = sigma * fHists[0].second->GetBinContent(bin);  // -1 sigma
+          ret = -1 * sigma * fHists[0].second->GetBinContent(bin);  // -1 sigma
       }
       else if (sigma > 0)
       {
