@@ -103,13 +103,10 @@ namespace ana {
       {
           selcalc->SetSpectra(2);
           Spectrum ret = fBkgSpectra->Reweight(selcalc);
-          return ret;    
-      }
-      else if (flav == Flavors::kNuMuToNuE) // MEC
-      {
+
 	  selcalc->SetSpectra(3);
-	  Spectrum ret = fMECSpectra->Reweight(selcalc);
-	  return ret;
+	  ret += fMECSpectra->Reweight(selcalc);
+          return ret;    
       }
       else if(flav == Flavors::kAll)
       {

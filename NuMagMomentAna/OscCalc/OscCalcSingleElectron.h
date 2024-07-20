@@ -32,7 +32,8 @@ namespace osc
       {
           kSignal                = 1<<0,
           kIrreducibleBackground = 1<<1,
-          kBackground            = 1<<2
+          kBackground            = 1<<2,
+	  kMEC                   = 1<<3
       };
   }
   
@@ -61,6 +62,7 @@ namespace osc
     void SetSigScale   (double      scale  )  {fSigScale     = scale;  }
     void SetIBkgScale  (double      scale  )  {fIBkgScale    = scale;  }
     void SetBkgScale   (double      scale  )  {fBkgScale     = scale;  }
+    void SetMECScale   (double      scale  )  {fMECScale     = scale;  }
     void SetDMFile     (std::string dmfile )  {fDMFile       = dmfile; }
     void SetSpectra    (int         spectra)  {fSpectralable = spectra;}
     
@@ -77,6 +79,7 @@ namespace osc
     double fSigScale;
     double fIBkgScale;
     double fBkgScale;
+    double fMECScale;
     double fDMMass;
     
     int fSpectralable;  //SpectraLabel: 0-signal, 1-irreducible background (nu-on-e), 2-other background
@@ -85,7 +88,7 @@ namespace osc
     float fDMEnergyBinw;
     std::string fDMFile;
     std::map<int, TH1F*> fMapHists;
-    std::vector<int> fDMMassPoints = {5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 450};  //dark matter mass in GeV
+    std::vector<int> fDMMassPoints = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 200, 300, 400, 450};  //dark matter mass in GeV
     
     void LoadDMHists();
   };

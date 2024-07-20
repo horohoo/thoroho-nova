@@ -67,16 +67,16 @@ namespace ana
     };
     enum SpectraType
     {
-        kSpectraSignal=0, kSpectraNuone=1, kSpectraOther=2, kNSpectraTypes=3
+      kSpectraSignal=0, kSpectraNuone=1, kSpectraOther=2, kNSpectraTypes=3
     };
 
     struct Coeffs
     {
-        Coeffs(double _a, double _b, double _c, double _d)
-        : a(_a), b(_b), c(_c), d(_d)
+    Coeffs(double _a, double _b, double _c, double _d)
+    : a(_a), b(_b), c(_c), d(_d)
         {
         }
-        double a, b, c, d;
+      double a, b, c, d;
     };
 
     // ISyst    What systematics we should be capable of interpolating

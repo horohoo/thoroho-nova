@@ -12,10 +12,11 @@ namespace osc
     : fSigScale(1.0),
       fIBkgScale(1.0),
       fBkgScale(1.0),
+      fMECScale(1.0),
       fDMMass(10),
       fIsDM(true),
       fDMEnergyBinw(0.3),
-      fDMFile("/nova/app/users/wmu/ldmanalysis/NuMagMomentAna/data/ldmspectra/ldmone.root")
+      fDMFile("/exp/nova/app/users/thoroho/ldmanalysis/NuMagMomentAna/data/ldmspectra/ldmone.root")
   {
       LoadDMHists();
   }
@@ -60,6 +61,11 @@ namespace osc
       {
 //          std::cout << "BkgScale " << fIBkgScale << std::endl;
           return fBkgScale;
+      }
+
+      if (spectralable == 3)
+      {
+	  return fMECScale;
       }
 
       

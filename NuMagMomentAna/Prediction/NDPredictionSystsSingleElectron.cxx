@@ -141,8 +141,8 @@ namespace ana
       else if (flav & Flavors::kNuEToNuTau) // background
       {
           ret += ShiftedComponent(calc, shift, flav, kSpectraOther);
+	  ret += ShiftedComponent(calc, shift, flav, kSpectraOther);
       }
-      
       else if(flav == Flavors::kAll)
       {
           ret += ShiftedComponent(calc, shift, Flavors::kNuEToNuE,   kSpectraSignal);
@@ -174,7 +174,7 @@ namespace ana
 	fNDSignalSysts.push_back(&kDummySyst);
       }
 
-      fNDIBkgSysts.push_back(&kDummySyst);
+      fNDIBkgSysts.push_back(&kNDPileupEffectSyst);//&kDummySyst);
       fNDIBkgSysts.push_back(&kNDNuoneCalibSyst);
       fNDIBkgSysts.push_back(&kNDNuoneLightSyst);
       fNDIBkgSysts.push_back(&kNDNuoneCherSyst);
@@ -238,7 +238,7 @@ namespace ana
           sp.fits[kSpectraSignal] = FitComponent(calc, sp.shifts, sp.preds, Flavors::kNuEToNuE,   sp.systName);  //use Flavors::kNuEToNuE for signal
           sp.fits[kSpectraNuone]  = FitComponent(calc, sp.shifts, sp.preds, Flavors::kNuEToNuMu,  sp.systName);
           sp.fits[kSpectraOther]  = FitComponent(calc, sp.shifts, sp.preds, Flavors::kNuEToNuTau, sp.systName);    
-
+	  
           sp.nCoeffs = sp.fits[0][0].size();
           
           sp.FillRemaps(); // Copy the outputs into the remapped indexing order.
