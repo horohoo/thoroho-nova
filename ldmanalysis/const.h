@@ -85,7 +85,7 @@ const ana::Cut kIsNueCC([](const caf::SRProxy* sr){
 const double Chi2for90CL = 2.70554;
 
 //parameters in the BdNMC simulation for DM production
-const float detEfficiency = (39.85/9.0) * (325.4/(51.6*8));
+const float detEfficiency = (325.4/(51.6*8));
 const float potbdnmc      = 1e21;    
 const float alpha         = 0.5;
 const float mchimvratio   = 1.0/3.0;
@@ -218,21 +218,23 @@ const std::vector<DmInf> dmInf = {{1, 13276, 1.13078e+15, 7.0e-7},
 
 
 //MC samples, including the signal (dm-on-e), the irreduicible background (nu-on-e), and other nominal background
-const std::string fldm   = "/pnfs/nova/persistent/users/bbrahma/LDM_S23-03-02/LDM_redo/Systematics/Reco/000324/324/*caf.root";
-const std::string fnuone = "/nova/ana/users/wmu/mcsample/nuone_caf/*"; //1.34928e+23 POT
-const std::string ffhc   = "prod_sumdecaf_development_nd_genie_N1810j0211a_nonswap_fhc_nova_v08_full_ndphysics_contain_v1"; //5.54495e+21 POT
-const std::string frhc   = "prod_sumdecaf_development_nd_genie_N1810j0211a_nonswap_rhc_nova_v08_full_ndphysics_contain_v1"; //5.06177e+21 POT
-const std::string fmec = "/nova/ana/users/thoroho/mec_caf/*";
+//const std::string fldm   = "/pnfs/nova/persistent/users/thoroho/ldm_caf/*caf.root";
+//const std::string fnuone = "prod_caf_R20-11-25-prod5.1reco.g_nd_genie_N1810j0211a_nonswap_fhc_nova_v08_full_v1_nuone_overlay"; //1.72e+24 POT
+//const std::string fnuone = "/pnfs/nova/persistent/users/thoroho/nuone_caf/*"; //1.34928e+23 POT
+//const std::string ffhc   = "prod_sumdecaf_development_nd_genie_N1810j0211a_nonswap_fhc_nova_v08_full_ndphysics_contain_v1"; //5.54495e+21 POT
+//const std::string frhc   = "prod_sumdecaf_development_nd_genie_N1810j0211a_nonswap_rhc_nova_v08_full_ndphysics_contain_v1"; //5.06177e+21 POT
+//const std::string fmec = "/pnfs/nova/persistent/users/thoroho/mec_caf/*";
 
 //Test MC samples
-//const std::string fldm   = "/nova/ana/users/thoroho/ldmone_caf/*";
-//const std::string fnuone = "/nova/ana/users/thoroho/nuone_caf/*";
-//const std::string ffhc   = "/nova/ana/users/thoroho/nominal_caf/*";
-//const std::string frhc   = "/pnfs/nova/persistent/users/wmu/test/nominal_caf/*";
-//const std::string fmec = "/nova/ana/users/thoroho/mec_caf_test/*";
+const std::string fldm   = "/pnfs/nova/persistent/users/thoroho/test_cafs/*";
+const std::string fnuone = "/pnfs/nova/persistent/users/thoroho/test_cafs/*";
+const std::string ffhc   = "/pnfs/nova/persistent/users/thoroho/test_cafs/*";
+const std::string frhc   = "/pnfs/nova/persistent/users/thoroho/test_cafs/*";
+const std::string fmec = "/pnfs/nova/persistent/users/thoroho/test_cafs/*";
 
 TString preDir = "./prediction/";
 TString fitDir = "./fits/";
 TString excDir = "./exclusion/";
+TString pdfDir = "./systs/";
 
 TString outDir = "./outputs/";
