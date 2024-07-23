@@ -19,7 +19,10 @@ namespace ana
 								   const Weight& weightMEC)
   : fBinning(Spectrum::Uninitialized())
   {
-    NDPredictionSingleElectron* prednom = new NDPredictionSingleElectron(signalloaders, ibkgloaders, bkgloaders, mecloaders, axis, cutSignal, cutIBkg, cutBkg, cutMEC);
+    NDPredictionSingleElectron* prednom = new NDPredictionSingleElectron(signalloaders, ibkgloaders, bkgloaders, mecloaders, 
+									 axis, cutSignal, cutIBkg, cutBkg, cutMEC, 
+									 kNoShift, kNoShift, kNoShift, kNoShift,
+									 weightIBkg, weightBkg, weightMEC);
       fPredNom.reset(prednom);
       
       SetDefaultNDSingleElectronSysts();
@@ -63,7 +66,7 @@ namespace ana
 	  sp.systName = fNDIBkgSysts[i_syst]->ShortName();
 	  sp.shifts = {-3, -2, -1, 0, +1, +2, +3};
 	  
-	  std::cout << "NDPredictionSystsSingleElectron is processing " << sp.systName << "... \n";
+	  //std::cout << "NDPredictionSystsSingleElectron is processing " << sp.systName << "... \n";
 
 	  for(int sigma: sp.shifts)
 	    {
@@ -141,7 +144,6 @@ namespace ana
       else if (flav & Flavors::kNuEToNuTau) // background
       {
           ret += ShiftedComponent(calc, shift, flav, kSpectraOther);
-	  ret += ShiftedComponent(calc, shift, flav, kSpectraOther);
       }
       else if(flav == Flavors::kAll)
       {
@@ -270,6 +272,7 @@ namespace ana
       for(auto& p: preds)
       {
           ratios.emplace_back(Ratio(p->PredictComponent(calc, flav, Current::kBoth, Sign::kBoth), nom).GetEigen());
+
           
           // Make sure none of the ratio values is crazy (larger than 500)
           Eigen::ArrayXd& r = ratios.back();
@@ -422,7 +425,9 @@ namespace ana
   Spectrum NDPredictionSystsSingleElectron::ShiftSpectrum(const Spectrum& s, SpectraType type, const SystShifts& shift) const
   {
       Eigen::ArrayXd vec = s.GetEigen(s.POT());
+
       ShiftBins(vec.size(), vec.data(), type, shift);
+
       return Spectrum(std::move(vec), HistAxis(s.GetLabels(), s.GetBinnings()), s.POT(), s.Livetime());
   }
 
@@ -461,6 +466,11 @@ namespace ana
               // assert(shiftBin < int(sp.fits[type][n].size()));
               const Coeffs& f = fits[n];
               corr[n] *= f.a*x_cube + f.b*x_sqr + f.c*x + f.d;
+	      //if (type == 2) {
+	      //if (n == 2 || n == 6 || n == 9 || n == 16) {
+	      //  std::cout << n << " " << corr[n] << " " << f.a << " " << f.b << " " << f.c << " " << f.d << " " << x << std::endl;
+	      //}
+	      //}
           }
       }
 
