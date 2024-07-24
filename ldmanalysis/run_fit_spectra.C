@@ -177,9 +177,8 @@ void run_fit_spectra(int dmmass = 200, TString options="nd_flux_pileup_xsec", in
     //Cuts for event selection
     const Cut sel_cut   = ldmone::SingleElecEventCVNCutFlow[iCuts].cut;
     const Cut nuone_cut = nuone::kintType == 1098 && nuone::kisVtxCont == 1;
-    const Cut mec_cut = MEC;
-    const Cut nuecc_cut = kIsNueCC;
-    const Cut numu_cut  = !nuone_cut && !mec_cut && !nuecc_cut;
+    const Cut mec_cut = MEC && kIsNueCC;;
+    const Cut numu_cut  = !nuone_cut && !mec_cut;
 
     
     std::vector<double> DMMass;
@@ -227,7 +226,7 @@ void run_fit_spectra(int dmmass = 200, TString options="nd_flux_pileup_xsec", in
     NDPredictionSystsSingleElectron pred(loaderldm, loadernuone, loadernominal, loadermec, etheta2Axis, sel_cut, sel_cut&&nuone_cut, sel_cut&&numu_cut, sel_cut&&mec_cut, ana::kPPFXFluxCVWgt*kradWt, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51, ana::kPPFXFluxCVWgt*ana::kXSecCVWgt2020GSFProd51);
 
 
-    const double pot = 1.25e21;
+    const double pot = 2.5e21;//1.25e21;
     for(auto i_dminf : dmInf)
     {
       int i_dm = i_dminf.DmMassPoints;

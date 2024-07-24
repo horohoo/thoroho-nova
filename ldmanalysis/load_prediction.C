@@ -4,7 +4,7 @@ using namespace ana;
 
 TH1F* LoadLdmNum();
 
-void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
+void load_prediction(int dmmass = 200, TString options="nd_flux_pileup_xsec", int iCuts = 5, bool isFHC = true, bool mock = false)
 {
   std::cout << "event started" << std::endl;
     TStopwatch sw;
@@ -25,9 +25,8 @@ void load_prediction(int dmmass = 100, TString options="nd_flux_pileup_xsec", in
     //Cuts for event selection
     const Cut sel_cut   = ldmone::SingleElecEventCVNCutFlow[iCuts].cut;
     const Cut nuone_cut = nuone::kintType == 1098 && nuone::kisVtxCont == 1;
-    const Cut mec_cut = MEC;
-    const Cut nuecc_cut = kIsNueCC;
-    const Cut numu_cut  = !nuone_cut && !mec_cut && !nuecc_cut;
+    const Cut mec_cut = MEC && kIsNueCC;
+    const Cut numu_cut  = !nuone_cut && !mec_cut;
 
     std::vector<double> DMMass;
     std::vector<double> ULimit;
